@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全自動單字複習器｜程式紀錄分離轉移版</title>
+<title>全自動單字複習器｜Firebase 雲端同步版</title>
 <style>
 :root{
   --bg:#f4f6f8;--panel:#fff;--text:#17202a;--muted:#667085;--line:#dfe3e8;
@@ -91,6 +91,15 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 .transfer-text{min-height:260px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45}
 
 .filter-banner{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:11px 13px;border-radius:12px;margin-top:12px}
+
+.cloud-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px 14px;margin:0 0 14px;box-shadow:0 4px 16px rgba(16,24,40,.05)}
+.cloud-info{min-width:220px;flex:1}
+.cloud-info b{display:block;font-size:14px;margin-bottom:3px}
+.cloud-info span{display:block;color:var(--muted);font-size:12px;line-height:1.45;word-break:break-word}
+.cloud-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cloud-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#98a2b3;margin-right:7px;vertical-align:1px}
+.cloud-dot.ok{background:#18794e}.cloud-dot.warn{background:#d97706}.cloud-dot.error{background:#c62828}.cloud-dot.busy{background:#1f6feb}
+@media(max-width:600px){.cloud-actions{width:100%}.cloud-actions button{flex:1;min-width:120px}.cloud-info{min-width:0}}
 @media(max-width:760px){
  .stats{grid-template-columns:repeat(2,1fr)}
  .item{grid-template-columns:1fr 1.4fr}
@@ -103,7 +112,19 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 <body>
 <div class="wrap">
 <h1>全自動單字複習器</h1>
-<div class="subtitle">程式與紀錄可分開搬移：下載這個HTML當程式；用「複製全部紀錄／貼上合併紀錄」搬移資料。</div>
+<div class="subtitle">支援 Google 登入與 Firebase 雲端同步；同一帳號可在手機與電腦共用單字和複習進度。</div>
+
+<div id="cloudBar" class="cloud-bar">
+  <div class="cloud-info">
+    <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
+    <span id="cloudAccount">尚未登入 Google；目前仍只儲存在這台裝置。</span>
+  </div>
+  <div class="cloud-actions">
+    <button id="googleLoginBtn" class="primary" disabled>使用 Google 登入</button>
+    <button id="manualSyncBtn" class="secondary" style="display:none">立即同步</button>
+    <button id="logoutBtn" class="secondary" style="display:none">登出</button>
+  </div>
+</div>
 
 <div class="tabs">
   <button class="tab active" data-tab="today">今天要背</button>
@@ -342,6 +363,304 @@ const OFFSETS=[0,1,3,7,14,30,60,90];
 let db=loadDB(), editingId=null, manageFilter='all';
 const $=id=>document.getElementById(id);
 
+// Firebase 雲端同步：同一個 Google 帳號在手機與電腦共用一份資料。
+const FIREBASE_CONFIG={
+ apiKey:'AIzaSyCc_pQRpQo2CDiYehk8iykUpMEJ2vp-ti4',
+ authDomain:'vocab-review-c809c.firebaseapp.com',
+ projectId:'vocab-review-c809c',
+ storageBucket:'vocab-review-c809c.firebasestorage.app',
+ messagingSenderId:'621726593043',
+ appId:'1:621726593043:web:29100790a63c8c0bfb0fe6'
+};
+const FIREBASE_SDK_VERSION='12.16.0';
+const CLOUD_LAST_SYNC_KEY='auto_vocab_cloud_last_sync';
+const CLOUD_DEVICE_KEY='auto_vocab_cloud_device_id';
+let firebaseModules=null;
+let firebaseAuth=null;
+let firebaseFirestore=null;
+let currentCloudUser=null;
+let cloudDocRef=null;
+let stopCloudListener=null;
+let cloudSyncEnabled=false;
+let cloudUploadTimer=null;
+let cloudUploadInProgress=false;
+let cloudApplyInProgress=false;
+let lastCloudDigest='';
+let cloudInitializationToken=0;
+
+function getDeviceId(){
+ let id=safeStorage.getItem(CLOUD_DEVICE_KEY);
+ if(!id){
+  id=`device_${uuid()}`;
+  safeStorage.setItem(CLOUD_DEVICE_KEY,id);
+ }
+ return id;
+}
+
+function normalizeNotebook(value){
+ const notes=Array.isArray(value?.notes)?value.notes:[];
+ return {version:Number(value?.version||2),notes:JSON.parse(JSON.stringify(notes))};
+}
+
+function notebookDigest(value=db){
+ try{return JSON.stringify(normalizeNotebook(value))}catch(e){return ''}
+}
+
+function setCloudUI(status,kind='busy',accountText=null){
+ const statusEl=$('cloudStatus');
+ const dot=$('cloudDot');
+ if(statusEl)statusEl.textContent=status;
+ if(dot)dot.className=`cloud-dot ${kind}`;
+ if(accountText!==null&&$('cloudAccount'))$('cloudAccount').textContent=accountText;
+}
+
+function updateCloudButtons(user){
+ if(!$('googleLoginBtn'))return;
+ $('googleLoginBtn').style.display=user?'none':'inline-flex';
+ $('manualSyncBtn').style.display=user?'inline-flex':'none';
+ $('logoutBtn').style.display=user?'inline-flex':'none';
+ $('googleLoginBtn').disabled=!firebaseModules;
+ $('manualSyncBtn').disabled=!user;
+}
+
+function renderCloudSignedOut(){
+ cloudSyncEnabled=false;
+ currentCloudUser=null;
+ cloudDocRef=null;
+ lastCloudDigest='';
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ updateCloudButtons(null);
+ setCloudUI('尚未登入，現在只儲存在這台裝置','warn','請用同一個 Google 帳號登入手機與電腦。');
+}
+
+function cloudErrorMessage(error){
+ const code=String(error?.code||'');
+ if(code.includes('popup-blocked'))return '登入視窗被瀏覽器阻擋，請允許彈出式視窗後再試。';
+ if(code.includes('popup-closed-by-user'))return '你關閉了登入視窗，尚未登入。';
+ if(code.includes('unauthorized-domain'))return '這個網站網域尚未加入 Firebase 授權網域。';
+ if(code.includes('permission-denied'))return 'Firestore 權限被拒絕，請確認安全規則已發布。';
+ if(code.includes('network-request-failed')||code.includes('unavailable'))return '目前網路無法連線到 Firebase，資料仍保留在本機。';
+ return error?.message||'發生未知錯誤。';
+}
+
+async function loadFirebaseModules(){
+ try{
+  setCloudUI('正在載入雲端同步功能','busy');
+  const base=`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
+  const [appMod,authMod,firestoreMod]=await Promise.all([
+   import(`${base}/firebase-app.js`),
+   import(`${base}/firebase-auth.js`),
+   import(`${base}/firebase-firestore.js`)
+  ]);
+  const app=appMod.initializeApp(FIREBASE_CONFIG);
+  firebaseAuth=authMod.getAuth(app);
+  firebaseFirestore=firestoreMod.getFirestore(app);
+  firebaseModules={appMod,authMod,firestoreMod};
+  try{await authMod.setPersistence(firebaseAuth,authMod.browserLocalPersistence)}catch(e){}
+  updateCloudButtons(firebaseAuth.currentUser);
+  $('googleLoginBtn').disabled=false;
+  authMod.onAuthStateChanged(firebaseAuth,user=>handleCloudAuthState(user));
+ }catch(error){
+  firebaseModules=null;
+  updateCloudButtons(null);
+  setCloudUI('雲端功能載入失敗','error',cloudErrorMessage(error));
+ }
+}
+
+async function googleLogin(){
+ if(!firebaseModules||!firebaseAuth)return;
+ try{
+  $('googleLoginBtn').disabled=true;
+  setCloudUI('正在開啟 Google 登入','busy');
+  const provider=new firebaseModules.authMod.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:'select_account'});
+  await firebaseModules.authMod.signInWithPopup(firebaseAuth,provider);
+ }catch(error){
+  setCloudUI('Google 登入未完成','error',cloudErrorMessage(error));
+ }finally{
+  if($('googleLoginBtn'))$('googleLoginBtn').disabled=false;
+ }
+}
+
+async function cloudLogout(){
+ if(!firebaseModules||!firebaseAuth)return;
+ try{await firebaseModules.authMod.signOut(firebaseAuth)}catch(error){
+  setCloudUI('登出失敗','error',cloudErrorMessage(error));
+ }
+}
+
+function applyNotebookLocally(notebook){
+ cloudApplyInProgress=true;
+ try{
+  db=normalizeNotebook(notebook);
+  saveDB();
+  renderToday();
+  renderList();
+  updateStats();
+ }finally{
+  cloudApplyInProgress=false;
+ }
+}
+
+async function mergeCloudNotebook(notebook){
+ const incoming=normalizeNotebook(notebook);
+ cloudApplyInProgress=true;
+ try{
+  mergeIncomingNotebook(incoming);
+ }finally{
+  cloudApplyInProgress=false;
+ }
+}
+
+async function uploadCloudNow(reason='自動同步'){
+ if(!cloudSyncEnabled||!currentCloudUser||!cloudDocRef||!firebaseModules||cloudApplyInProgress)return false;
+ if(cloudUploadInProgress){scheduleCloudUpload();return false}
+ const payload=normalizeNotebook(db);
+ const digest=notebookDigest(payload);
+ if(digest===lastCloudDigest){
+  setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}｜資料已是最新`);
+  return true;
+ }
+ cloudUploadInProgress=true;
+ setCloudUI('正在上傳雲端','busy',`${currentCloudUser.email||'Google 帳號'}｜${reason}`);
+ try{
+  await firebaseModules.firestoreMod.setDoc(cloudDocRef,{
+   notebook:payload,
+   clientUpdatedAt:new Date().toISOString(),
+   updatedAt:firebaseModules.firestoreMod.serverTimestamp(),
+   updatedBy:getDeviceId()
+  },{merge:true});
+  lastCloudDigest=digest;
+  const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
+  safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
+  setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}｜最後同步 ${stamp}`);
+  return true;
+ }catch(error){
+  setCloudUI('同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
+  return false;
+ }finally{
+  cloudUploadInProgress=false;
+ }
+}
+
+function scheduleCloudUpload(){
+ if(!cloudSyncEnabled||cloudApplyInProgress||!currentCloudUser)return;
+ clearTimeout(cloudUploadTimer);
+ cloudUploadTimer=setTimeout(()=>uploadCloudNow('自動儲存'),700);
+}
+
+async function resolveInitialCloudData(snapshot,token){
+ if(token!==cloudInitializationToken||!currentCloudUser)return;
+ const cloudRaw=snapshot.exists()?snapshot.data()?.notebook:null;
+ const cloudNotebook=cloudRaw&&Array.isArray(cloudRaw.notes)?normalizeNotebook(cloudRaw):null;
+ const localNotebook=normalizeNotebook(db);
+ const localCount=localNotebook.notes.length;
+ const cloudCount=cloudNotebook?.notes.length||0;
+ const localDigest=notebookDigest(localNotebook);
+ const cloudDigest=cloudNotebook?notebookDigest(cloudNotebook):'';
+
+ // 初始化期間先禁止任何自動上傳，避免空白的新裝置蓋掉舊資料。
+ cloudSyncEnabled=false;
+ if(!cloudNotebook){
+  cloudSyncEnabled=true;
+  lastCloudDigest='';
+  if(localCount){
+   setCloudUI('首次上傳手機／本機資料','busy',`${currentCloudUser.email||'Google 帳號'}｜共 ${localCount} 份`);
+   await uploadCloudNow('首次建立雲端資料');
+  }else{
+   setCloudUI('已登入，雲端目前沒有資料','ok',`${currentCloudUser.email||'Google 帳號'}｜新增單字後會自動同步`);
+  }
+ }else if(localDigest===cloudDigest){
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  const stamp=safeStorage.getItem(CLOUD_LAST_SYNC_KEY);
+  setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}${stamp?`｜最後同步 ${stamp}`:'｜資料已一致'}`);
+ }else if(!localCount&&cloudCount){
+  setCloudUI('正在下載雲端資料','busy',`${currentCloudUser.email||'Google 帳號'}｜共 ${cloudCount} 份`);
+  applyNotebookLocally(cloudNotebook);
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
+  safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
+  setCloudUI('已下載並同步','ok',`${currentCloudUser.email||'Google 帳號'}｜共 ${cloudCount} 份`);
+ }else if(localCount&&!cloudCount){
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  await uploadCloudNow('以本機非空資料更新空白雲端');
+ }else{
+  setCloudUI('手機與雲端資料不同，正在安全合併','busy',`本機 ${localCount} 份＋雲端 ${cloudCount} 份，不會直接覆蓋`);
+  await mergeCloudNotebook(cloudNotebook);
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  await uploadCloudNow('合併後同步');
+ }
+ attachCloudListener(token);
+}
+
+function attachCloudListener(token){
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ if(!cloudDocRef||!firebaseModules)return;
+ let firstEvent=true;
+ stopCloudListener=firebaseModules.firestoreMod.onSnapshot(cloudDocRef,async snapshot=>{
+  if(token!==cloudInitializationToken||!currentCloudUser||!snapshot.exists())return;
+  const remote=snapshot.data()?.notebook;
+  if(!remote||!Array.isArray(remote.notes))return;
+  const remoteDigest=notebookDigest(remote);
+  if(firstEvent){firstEvent=false;lastCloudDigest=remoteDigest;return}
+  if(remoteDigest===lastCloudDigest||remoteDigest===notebookDigest(db)){
+   lastCloudDigest=remoteDigest;
+   return;
+  }
+  setCloudUI('偵測到另一台裝置的更新，正在合併','busy',currentCloudUser.email||'Google 帳號');
+  const wasEnabled=cloudSyncEnabled;
+  cloudSyncEnabled=false;
+  await mergeCloudNotebook(remote);
+  lastCloudDigest=remoteDigest;
+  cloudSyncEnabled=wasEnabled;
+  await uploadCloudNow('跨裝置合併');
+ },error=>{
+  setCloudUI('即時同步中斷，本機資料仍安全保留','error',cloudErrorMessage(error));
+ });
+}
+
+async function handleCloudAuthState(user){
+ const token=++cloudInitializationToken;
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ clearTimeout(cloudUploadTimer);
+ if(!user){renderCloudSignedOut();return}
+ currentCloudUser=user;
+ updateCloudButtons(user);
+ setCloudUI('已登入，正在檢查雲端資料','busy',user.email||user.displayName||'Google 帳號');
+ cloudDocRef=firebaseModules.firestoreMod.doc(firebaseFirestore,'users',user.uid,'vocab','notebook');
+ try{
+  const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
+  await resolveInitialCloudData(snapshot,token);
+ }catch(error){
+  cloudSyncEnabled=false;
+  setCloudUI('無法讀取雲端，本機資料仍安全保留','error',cloudErrorMessage(error));
+ }
+}
+
+async function manualCloudSync(){
+ if(!currentCloudUser||!cloudDocRef||!firebaseModules)return;
+ $('manualSyncBtn').disabled=true;
+ try{
+  setCloudUI('正在手動同步','busy',currentCloudUser.email||'Google 帳號');
+  const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
+  if(snapshot.exists()&&Array.isArray(snapshot.data()?.notebook?.notes)){
+   const remote=snapshot.data().notebook;
+   if(notebookDigest(remote)!==notebookDigest(db))await mergeCloudNotebook(remote);
+   lastCloudDigest=notebookDigest(remote);
+  }
+  cloudSyncEnabled=true;
+  await uploadCloudNow('手動同步');
+ }catch(error){
+  setCloudUI('手動同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
+ }finally{
+  $('manualSyncBtn').disabled=false;
+ }
+}
+
 function emptyDB(){return {version:2,notes:[]}}
 
 function parseNotebook(raw){
@@ -416,6 +735,7 @@ function saveDB(){
  }
 
  updateStats();
+ scheduleCloudUpload();
 }
 function localISO(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
 function todayISO(){return localISO(new Date())}
@@ -1372,11 +1692,15 @@ $('recoverLegacyBtn').onclick=recoverLegacyData;
 $('importModal').onclick=e=>{if(e.target===$('importModal'))$('importModal').classList.remove('show')};
 $('cancelEditBtn').onclick=()=>$('editModal').classList.remove('show');$('saveEditBtn').onclick=saveEdit;
 $('closeViewBtn').onclick=()=>$('viewModal').classList.remove('show');
+$('googleLoginBtn').onclick=googleLogin;
+$('manualSyncBtn').onclick=manualCloudSync;
+$('logoutBtn').onclick=cloudLogout;
 
 
 const now=new Date();$('startDateCode').value=String(now.getMonth()+1)+String(now.getDate()).padStart(2,'0');
 window.addEventListener('beforeunload',()=>{if(exportObjectURL)URL.revokeObjectURL(exportObjectURL)});
 renderSchedulePreview();updateStats();
+loadFirebaseModules();
 if(!PERSISTENT_STORAGE_AVAILABLE){
  const subtitle=document.querySelector('.subtitle');
  if(subtitle){

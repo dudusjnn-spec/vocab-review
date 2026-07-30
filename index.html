@@ -114,18 +114,6 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 <h1>全自動單字複習器</h1>
 <div class="subtitle">支援 Google 登入與 Firebase 雲端同步；同一帳號可在手機與電腦共用單字和複習進度。</div>
 
-<div id="cloudBar" class="cloud-bar">
-  <div class="cloud-info">
-    <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
-    <span id="cloudAccount">尚未登入 Google；目前仍只儲存在這台裝置。</span>
-  </div>
-  <div class="cloud-actions">
-    <button id="googleLoginBtn" class="primary" disabled>使用 Google 登入</button>
-    <button id="manualSyncBtn" class="secondary" style="display:none">立即同步</button>
-    <button id="logoutBtn" class="secondary" style="display:none">登出</button>
-  </div>
-</div>
-
 <div class="tabs">
   <button class="tab active" data-tab="today">今天要背</button>
   <button class="tab" data-tab="add">新增單字表</button>
@@ -172,6 +160,18 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 </section>
 
 <section id="manage" class="panel">
+  <div class="section-title" style="margin-top:0">雲端同步設定</div>
+  <div id="cloudBar" class="cloud-bar">
+    <div class="cloud-info">
+      <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
+      <span id="cloudAccount">尚未登入 Google；目前仍只儲存在這台裝置。</span>
+    </div>
+    <div class="cloud-actions">
+      <button id="googleLoginBtn" class="primary" disabled>使用 Google 登入</button>
+      <button id="manualSyncBtn" class="secondary" style="display:none">立即同步</button>
+      <button id="logoutBtn" class="secondary" style="display:none">登出</button>
+    </div>
+  </div>
   <div class="row">
     <button id="copyRecordsBtn" class="primary">複製全部紀錄</button>
     <button id="pasteRecordsBtn" class="secondary">貼上／合併紀錄</button>

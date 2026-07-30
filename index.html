@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>英文單字學習器</title>
+  <style>
+    :root{
+      --bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#667085;--line:#dfe4ec;
+      --primary:#2563eb;--primary-soft:#eaf1ff;--ok:#18794e;--ok-soft:#e9f7ef;
+      --warn:#9a6700;--warn-soft:#fff4d6;--danger:#c62828;--danger-soft:#ffebee;
+      --shadow:0 10px 30px rgba(16,24,40,.07)
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg)}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif}
+    button,input,textarea{font:inherit}
+    button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    .wrap{max-width:980px;margin:0 auto;padding:18px 14px 40px}
+    h1{font-size:27px;margin:2px 0 5px}
+    .subtitle{font-size:14px;color:var(--muted);line-height:1.55;margin-bottom:14px}
+    .notice{display:none;border:1px solid #b9d1ff;background:#f2f6ff;color:#244a8f;border-radius:13px;padding:10px 12px;margin:0 0 12px;font-size:13px;line-height:1.55}
+    .notice.show{display:block}
+    .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+    .tab{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:11px 15px;font-weight:800;cursor:pointer}
+    .tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    .panel{display:none;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:var(--shadow)}
+    .panel.active{display:block}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px}
+    .stat{border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px;text-align:left}
+    .stat span{display:block;color:var(--muted);font-size:12px}
+    .stat b{display:block;font-size:24px;margin-top:5px}
+    .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+    .grow{flex:1;min-width:220px}
+    label{display:block;font-size:13px;color:var(--muted);font-weight:750;margin:10px 0 5px}
+    input,textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px;background:#fff;color:var(--text);outline:none}
+    input:focus,textarea:focus{border-color:#8db2ff;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+    textarea{min-height:250px;line-height:1.68;resize:vertical;font-size:16px}
+    button{border:0;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .primary{background:var(--primary);color:#fff}
+    .secondary{background:#eef2f7;color:var(--text)}
+    .danger{background:var(--danger-soft);color:var(--danger)}
+    .hint{font-size:13px;color:var(--muted);line-height:1.55}
+    .schedule{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 3px}
+    .chip{border:1px solid var(--line);background:#f8fafc;border-radius:11px;padding:8px 10px;min-width:87px}
+    .chip b{display:block;font-size:11px;color:var(--muted)}
+    .chip span{font-weight:800}
+    .empty{text-align:center;color:var(--muted);padding:38px 12px}
+    .list{display:flex;flex-direction:column;gap:11px;margin-top:14px}
+    .card{border:1px solid var(--line);border-radius:15px;background:#fff;overflow:hidden}
+    .card.done-today{border-color:#9bd3b5;background:#f7fcf9}
+    .card-head{display:flex;gap:11px;align-items:flex-start;padding:13px}
+    .check{width:23px;height:23px;accent-color:var(--ok);cursor:pointer;margin-top:2px;flex:0 0 auto}
+    .card-main{flex:1;min-width:0}
+    .card-title{font-size:17px;font-weight:850}
+    .meta{font-size:13px;color:var(--muted);line-height:1.55;margin-top:4px}
+    .status{display:inline-block;border-radius:999px;padding:3px 7px;font-size:12px;font-weight:800}
+    .status.today{background:var(--warn-soft);color:var(--warn)}
+    .status.overdue{background:var(--danger-soft);color:var(--danger)}
+    .status.future{background:#eef2f7;color:#475467}
+    .status.done{background:var(--ok-soft);color:var(--ok)}
+    .actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+    .actions button{padding:8px 10px;font-size:13px}
+    .content{border-top:1px solid var(--line);padding:16px;background:#fbfcfe;white-space:pre-wrap;word-break:break-word;font-size:16px;line-height:1.75;max-height:340px;overflow:auto}
+    .section-title{font-size:18px;font-weight:850;margin:20px 0 8px}
+    .manage-card{border:1px solid var(--line);border-radius:15px;padding:14px;background:#fff;margin-bottom:12px}
+    .manage-card h3{margin:0 0 6px;font-size:17px}
+    .account-line{font-size:13px;color:var(--muted);line-height:1.6;word-break:break-word;min-height:21px}
+    .sync-status{margin-top:8px;border-radius:11px;padding:9px 11px;background:#f8fafc;color:#475467;font-size:13px;line-height:1.55}
+    .sync-status.ok{background:var(--ok-soft);color:var(--ok)}
+    .sync-status.error{background:var(--danger-soft);color:var(--danger)}
+    .sync-status.busy{background:var(--primary-soft);color:#244a8f}
+    .auth-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
+    .manage-list{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+    .manage-item{border-top:1px solid var(--line);padding:11px 0;display:grid;grid-template-columns:120px 1fr auto;gap:9px;align-items:center}
+    .preview{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#344054}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.44);display:none;align-items:center;justify-content:center;padding:14px;z-index:50}
+    .modal.show{display:flex}
+    .modalbox{background:#fff;border-radius:17px;padding:18px;width:min(720px,100%);max-height:92vh;overflow:auto;box-shadow:var(--shadow)}
+    .modalbox h3{margin:0 0 8px}
+    .modalbox textarea{min-height:300px}
+    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:10px 14px;border-radius:10px;display:none;z-index:80;max-width:90%;text-align:center;font-size:14px}
+    .toast.show{display:block}
+    .danger-text{color:var(--danger)}
+    @media(max-width:720px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .panel{padding:14px}
+      .card-head{flex-wrap:wrap}
+      .actions{width:100%;padding-left:34px;justify-content:flex-start}
+      .auth-grid{grid-template-columns:1fr}
+      .manage-item{grid-template-columns:88px 1fr}
+      .manage-item .actions{grid-column:1/-1;padding-left:0}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>英文單字學習器</h1>
+  <div class="subtitle">手機和電腦使用同一組帳號即可同步。背單字頁面不顯示登入或同步區塊。</div>
+  <div id="migrationNotice" class="notice"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="today">今天要背</button>
+    <button class="tab" data-tab="add">新增單字表</button>
+    <button class="tab" data-tab="manage">管理／同步</button>
+  </div>
+
+  <section id="today" class="panel active">
+    <div class="stats">
+      <div class="stat"><span>今天應複習</span><b id="statDue">0</b></div>
+      <div class="stat"><span>其中逾期</span><b id="statOverdue">0</b></div>
+      <div class="stat"><span>全部單字表</span><b id="statAll">0</b></div>
+      <div class="stat"><span>完成 90 天</span><b id="statDone">0</b></div>
+    </div>
+    <div class="row">
+      <div class="grow">
+        <label for="batchSearch">查看特定開始日期（選填）</label>
+        <input id="batchSearch" inputmode="numeric" placeholder="例如 724 或 20260724">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="showTodayBtn" class="primary">打開內容</button>
+      </div>
+    </div>
+    <div id="todayList" class="list"></div>
+    <div id="todayEmpty" class="empty">按「打開內容」查看今天到期的單字表。</div>
+  </section>
+
+  <section id="add" class="panel">
+    <label for="startDateCode">這份單字表的開始日期</label>
+    <input id="startDateCode" inputmode="numeric" placeholder="例如 730 或 20260730">
+    <div class="hint" style="margin-top:8px">排程：第 0、1、3、7、14、30、60、90 天</div>
+    <div id="schedulePreview" class="schedule"></div>
+    <div id="dateError" class="hint danger-text"></div>
+    <label for="noteInput">單字內容</label>
+    <textarea id="noteInput" placeholder="直接貼上單字、例句或自己的筆記。"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="saveNoteBtn" class="primary">儲存並安排日期</button>
+      <button id="clearInputBtn" class="secondary">清空</button>
+    </div>
+    <div id="saveResult" class="hint" style="margin-top:9px"></div>
+  </section>
+
+  <section id="manage" class="panel">
+    <div class="manage-card">
+      <h3>帳號與跨裝置同步</h3>
+      <div class="account-line">不再使用 Google 彈出登入。請用 Email 和密碼登入，手機與電腦填同一組即可。</div>
+      <div id="signedOutBox">
+        <div class="auth-grid">
+          <div><label for="emailInput">Email</label><input id="emailInput" type="email" autocomplete="email" placeholder="你的 Email"></div>
+          <div><label for="passwordInput">密碼（至少 6 個字元）</label><input id="passwordInput" type="password" autocomplete="current-password" placeholder="你的密碼"></div>
+        </div>
+        <div class="row" style="margin-top:11px">
+          <button id="loginBtn" class="primary">登入</button>
+          <button id="registerBtn" class="secondary">第一次使用：建立帳號</button>
+        </div>
+      </div>
+      <div id="signedInBox" style="display:none">
+        <div id="accountText" class="account-line" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="syncNowBtn" class="primary">立即同步</button>
+          <button id="logoutBtn" class="secondary">登出</button>
+        </div>
+      </div>
+      <div id="syncStatus" class="sync-status">目前只儲存在這台裝置。</div>
+    </div>
+
+    <div class="manage-card">
+      <h3>備份與舊資料</h3>
+      <div class="row" style="margin-top:9px">
+        <button id="exportBtn" class="primary">下載 JSON 備份</button>
+        <button id="importBtn" class="secondary">匯入 JSON 備份</button>
+        <button id="migrateBtn" class="secondary">重新讀取舊版資料</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <div class="hint" style="margin-top:9px">新網站會自動讀取舊版的 <code>auto_vocab_notebook_v2</code> 資料，不會主動刪除舊資料。</div>
+    </div>
+
+    <div class="manage-card">
+      <h3>全部單字表</h3>
+      <div id="manageList" class="manage-list"></div>
+    </div>
+  </section>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modalbox">
+    <h3>編輯單字表</h3>
+    <div id="editInfo" class="hint"></div>
+    <textarea id="editText"></textarea>
+    <div class="row" style="justify-content:flex-end;margin-top:11px">
+      <button id="cancelEditBtn" class="secondary">取消</button>
+      <button id="saveEditBtn" class="primary">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyCc_pQRpQo2CDiYehk8iykUpMEJ2vp-ti4',
+    authDomain: 'vocab-review-c809c.firebaseapp.com',
+    projectId: 'vocab-review-c809c',
+    storageBucket: 'vocab-review-c809c.firebasestorage.app',
+    messagingSenderId: '621726593043',
+    appId: '1:621726593043:web:29100790a63c8c0bfb0fe6'
+  };
+
+  const APP_KEY = 'english_vocab_app_v1';
+  const LEGACY_KEYS = ['auto_vocab_notebook_v2', 'auto_vocab_notebook_v2_last_good'];
+  const OFFSETS = [0,1,3,7,14,30,60,90];
+  const DEVICE_KEY = 'english_vocab_device_id';
+  const $ = id => document.getElementById(id);
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const memoryStore = new Map();
+  const store = {
+    get(key){
+      try{
+        const value = window.localStorage.getItem(key);
+        if(value !== null) memoryStore.set(key,value);
+        return value !== null ? value : (memoryStore.get(key) ?? null);
+      }catch(e){ return memoryStore.get(key) ?? null; }
+    },
+    set(key,value){
+      const text=String(value); memoryStore.set(key,text);
+      try{ window.localStorage.setItem(key,text); }catch(e){}
+    }
+  };
+
+  let state = loadLocalState();
+  let editingId = null;
+  let currentUser = null;
+  let cloudDoc = null;
+  let unsubscribeCloud = null;
+  let uploadTimer = null;
+  let applyingRemote = false;
+  let lastCloudDigest = '';
+  let auth = null;
+  let firestore = null;
+
+  function nowMs(){ return Date.now(); }
+  function uid(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`; }
+  function deviceId(){
+    let id = store.get(DEVICE_KEY);
+    if(!id){ id = `dev_${uid()}`; store.set(DEVICE_KEY,id); }
+    return id;
+  }
+  function emptyState(){ return {version:3, revision:0, updatedAtMs:0, notes:[], deleted:{}}; }
+  function normalizeState(raw){
+    const out = emptyState();
+    if(!raw || typeof raw !== 'object') return out;
+    out.version = 3;
+    out.revision = Number(raw.revision || 0);
+    out.updatedAtMs = Number(raw.updatedAtMs || 0);
+    out.deleted = raw.deleted && typeof raw.deleted === 'object' ? {...raw.deleted} : {};
+    out.notes = Array.isArray(raw.notes) ? raw.notes.map(normalizeNote).filter(Boolean) : [];
+    return out;
+  }
+  function normalizeNote(n){
+    if(!n || !n.startDate || !String(n.content || '').trim()) return null;
+    const start = String(n.startDate);
+    const created = Number(n.createdAtMs || parseDateMs(n.createdAt) || nowMs());
+    const updated = Number(n.updatedAtMs || parseDateMs(n.updatedAt) || created);
+    return {
+      id: String(n.id || uid()),
+      startDate: start,
+      content: String(n.content || ''),
+      schedule: Array.isArray(n.schedule) && n.schedule.length === 8 ? n.schedule.map(String) : buildSchedule(start),
+      stage: Math.max(0, Number(n.stage || 0)),
+      retryDate: n.retryDate ? String(n.retryDate) : null,
+      completed: Boolean(n.completed),
+      history: Array.isArray(n.history) ? clone(n.history) : [],
+      createdAtMs: created,
+      updatedAtMs: updated
+    };
+  }
+  function parseDateMs(value){
+    if(!value) return 0;
+    const n = Date.parse(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function loadLocalState(){
+    try{
+      const current = JSON.parse(store.get(APP_KEY) || 'null');
+      if(current && Array.isArray(current.notes)) return normalizeState(current);
+    }catch(e){}
+    const migrated = readLegacyState();
+    if(migrated.notes.length){
+      try{ store.set(APP_KEY, JSON.stringify(migrated)); }catch(e){}
+      setTimeout(() => showMigrationNotice(`已自動讀取舊版資料：${migrated.notes.length} 份單字表。`), 0);
+      return migrated;
+    }
+    return emptyState();
+  }
+  function readLegacyState(){
+    for(const key of LEGACY_KEYS){
+      try{
+        const raw = JSON.parse(store.get(key) || 'null');
+        if(raw && Array.isArray(raw.notes) && raw.notes.length){
+          return normalizeState({version:3,notes:raw.notes,deleted:{},revision:1,updatedAtMs:nowMs()});
+        }
+      }catch(e){}
+    }
+    return emptyState();
+  }
+  function saveLocal({sync=true}={}){
+    state.version = 3;
+    state.revision = Number(state.revision || 0) + 1;
+    state.updatedAtMs = nowMs();
+    store.set(APP_KEY, JSON.stringify(state));
+    renderAll();
+    if(sync && currentUser && !applyingRemote) scheduleUpload();
+  }
+  function digest(value){
+    try{
+      const v=normalizeState(value);
+      const notes=[...v.notes].sort((a,b)=>a.id.localeCompare(b.id));
+      const deleted=Object.fromEntries(Object.entries(v.deleted||{}).sort(([a],[b])=>a.localeCompare(b)));
+      return JSON.stringify({version:3,notes,deleted});
+    }catch(e){return ''}
+  }
+  function showMigrationNotice(text){
+    const el = $('migrationNotice');
+    if(!el) return;
+    el.textContent = text;
+    el.classList.add('show');
+  }
+  function toast(text){
+    const el = $('toast');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => el.classList.remove('show'), 1900);
+  }
+  function escapeHTML(text){
+    return String(text ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  }
+  function localISO(date){ return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
+  function todayISO(){ return localISO(new Date()); }
+  function addDays(iso, days){ const [y,m,d] = iso.split('-').map(Number); const x = new Date(y,m-1,d,12); x.setDate(x.getDate()+days); return localISO(x); }
+  function buildSchedule(start){ return OFFSETS.map(d => addDays(start,d)); }
+  function parseDateCode(value){
+    const raw = String(value || '').replace(/\D/g,'');
+    if(!raw) return null;
+    let y,m,d;
+    if(raw.length === 8){ y=+raw.slice(0,4); m=+raw.slice(4,6); d=+raw.slice(6); }
+    else if(raw.length === 3){ y=new Date().getFullYear(); m=+raw.slice(0,1); d=+raw.slice(1); }
+    else if(raw.length === 4){ y=new Date().getFullYear(); m=+raw.slice(0,2); d=+raw.slice(2); }
+    else return null;
+    const x = new Date(y,m-1,d,12);
+    return x.getFullYear()===y && x.getMonth()===m-1 && x.getDate()===d ? localISO(x) : null;
+  }
+  function displayDate(iso, includeYear=false){ if(!iso) return '—'; const [y,m,d]=iso.split('-'); return includeYear ? `${y}/${+m}/${+d}` : `${+m}/${+d}`; }
+  function dateCode(iso){ const [,m,d]=iso.split('-'); return `${+m}${String(+d).padStart(2,'0')}`; }
+  function effectiveDue(n){ return n.completed ? null : (n.retryDate || n.schedule[n.stage] || null); }
+  function latestTodayCompletion(n){
+    const t = todayISO();
+    const list = (n.history || []).filter(h => h.action==='completed' && h.date===t);
+    return list.length ? list[list.length-1] : null;
+  }
+  function completedToday(n){ return Boolean(latestTodayCompletion(n)); }
+  function matchesSearch(n,q){
+    q = String(q || '').trim().toLowerCase();
+    if(!q) return true;
+    const digits = q.replace(/\D/g,'');
+    return n.content.toLowerCase().includes(q) || n.startDate.replaceAll('-','').includes(digits) || dateCode(n.startDate)===digits;
+  }
+  function touchNote(note){ note.updatedAtMs = nowMs(); }
+
+  function updateStats(){
+    const t = todayISO();
+    const due = state.notes.filter(n => !n.completed && effectiveDue(n) && effectiveDue(n) <= t);
+    $('statDue').textContent = due.length;
+    $('statOverdue').textContent = due.filter(n => effectiveDue(n) < t).length;
+    $('statAll').textContent = state.notes.length;
+    $('statDone').textContent = state.notes.filter(n => n.completed).length;
+  }
+  function statusHTML(n){
+    const due = effectiveDue(n), t = todayISO();
+    if(completedToday(n)) return '<span class="status done">今天已完成</span>';
+    if(n.completed) return '<span class="status done">完成 90 天</span>';
+    if(due < t) return `<span class="status overdue">逾期 ${displayDate(due)}</span>`;
+    if(due === t) return '<span class="status today">今天到期</span>';
+    return `<span class="status future">下次 ${displayDate(due)}</span>`;
+  }
+  function noteCardHTML(n, allowCheck){
+    const done = completedToday(n);
+    const h = latestTodayCompletion(n);
+    const displayStage = h && Number.isInteger(h.scheduledStage) ? h.scheduledStage : (done ? Math.max(0,n.stage-1) : n.stage);
+    const offset = OFFSETS[displayStage] ?? 90;
+    return `<article class="card ${done?'done-today':''}" data-id="${escapeHTML(n.id)}">
+      <div class="card-head">
+        ${allowCheck ? `<input class="check" type="checkbox" data-action="toggle" data-id="${escapeHTML(n.id)}" ${done?'checked':''}>` : '<div style="width:23px"></div>'}
+        <div class="card-main">
+          <div class="card-title">${displayDate(n.startDate)} 開始的單字表</div>
+          <div class="meta">${statusHTML(n)}　今天項目：第 ${offset} 天／第 ${Math.min(displayStage+1,8)} 次</div>
+        </div>
+        <div class="actions">
+          <button class="secondary" data-action="edit" data-id="${escapeHTML(n.id)}">編輯</button>
+          <button class="danger" data-action="delete" data-id="${escapeHTML(n.id)}">刪除</button>
+        </div>
+      </div>
+      <div class="content">${escapeHTML(n.content)}</div>
+    </article>`;
+  }
+  function renderToday(){
+    const q = $('batchSearch').value.trim();
+    const t = todayISO();
+    let notes;
+    if(q){ notes = state.notes.filter(n => matchesSearch(n,q)).sort((a,b)=>a.startDate.localeCompare(b.startDate)); }
+    else{
+      notes = state.notes.filter(n => (!n.completed && effectiveDue(n) && effectiveDue(n)<=t) || completedToday(n))
+        .sort((a,b)=>Number(completedToday(a))-Number(completedToday(b)) || String(effectiveDue(a)||'9999').localeCompare(String(effectiveDue(b)||'9999')));
+    }
+    $('todayList').innerHTML = notes.map(n => {
+      const due = effectiveDue(n);
+      const allow = completedToday(n) || (!n.completed && due && due<=t);
+      return noteCardHTML(n,allow);
+    }).join('');
+    $('todayEmpty').style.display = notes.length ? 'none' : 'block';
+    $('todayEmpty').textContent = q ? '找不到符合的單字表。' : '今天沒有待背的單字表。';
+  }
+  function renderManage(){
+    const notes = [...state.notes].sort((a,b)=>b.startDate.localeCompare(a.startDate));
+    $('manageList').innerHTML = notes.length ? notes.map(n => `<div class="manage-item" data-id="${escapeHTML(n.id)}">
+      <b>${displayDate(n.startDate,true)}</b>
+      <div class="preview">${escapeHTML(n.content.replace(/\s+/g,' '))}</div>
+      <div class="actions"><button class="secondary" data-action="edit" data-id="${escapeHTML(n.id)}">編輯</button><button class="danger" data-action="delete" data-id="${escapeHTML(n.id)}">刪除</button></div>
+    </div>`).join('') : '<div class="empty">目前沒有單字表。</div>';
+  }
+  function renderSchedule(){
+    const start = parseDateCode($('startDateCode').value);
+    $('schedulePreview').innerHTML = '';
+    $('dateError').textContent = '';
+    if(!$('startDateCode').value.trim()) return;
+    if(!start){ $('dateError').textContent = '日期格式不正確。'; return; }
+    $('schedulePreview').innerHTML = buildSchedule(start).map((d,i)=>`<div class="chip"><b>第 ${OFFSETS[i]} 天</b><span>${displayDate(d)}</span></div>`).join('');
+  }
+  function renderAuth(){
+    const signedIn = Boolean(currentUser);
+    $('signedOutBox').style.display = signedIn ? 'none' : 'block';
+    $('signedInBox').style.display = signedIn ? 'block' : 'none';
+    $('accountText').textContent = signedIn ? `已登入：${currentUser.email || currentUser.uid}` : '';
+  }
+  function renderAll(){ updateStats(); renderToday(); renderManage(); renderAuth(); }
+
+  function saveNewNote(){
+    const start = parseDateCode($('startDateCode').value);
+    const content = $('noteInput').value.trim();
+    if(!start){ $('saveResult').textContent = '請輸入有效日期。'; return; }
+    if(!content){ $('saveResult').textContent = '單字內容是空的。'; return; }
+    const same = state.notes.find(n => n.startDate===start && !n.completed);
+    if(same){ same.content = `${same.content.trimEnd()}\n\n${content}`; touchNote(same); }
+    else{
+      state.notes.push({id:uid(),startDate:start,content,schedule:buildSchedule(start),stage:0,retryDate:null,completed:false,history:[],createdAtMs:nowMs(),updatedAtMs:nowMs()});
+    }
+    $('noteInput').value = '';
+    $('saveResult').textContent = '已儲存。';
+    saveLocal();
+    toast('已儲存');
+  }
+  function toggleCompletion(id,checked){
+    const n = state.notes.find(x=>x.id===id);
+    if(!n) return;
+    const today = todayISO();
+    if(checked){
+      if(completedToday(n)) return;
+      const priorStage=n.stage, priorCompleted=n.completed, priorRetryDate=n.retryDate ?? null;
+      n.history ||= [];
+      n.history.push({date:today,action:'completed',scheduledStage:priorStage,priorStage,priorCompleted,priorRetryDate,atMs:nowMs()});
+      n.retryDate=null;
+      let next=n.stage+1;
+      while(next<n.schedule.length && n.schedule[next]<=today) next++;
+      if(next>=n.schedule.length){ n.stage=n.schedule.length; n.completed=true; }
+      else n.stage=next;
+      touchNote(n);
+      saveLocal();
+      toast('已勾選完成');
+    }else{
+      const h = latestTodayCompletion(n);
+      if(!h) return;
+      n.stage = Number.isInteger(h.priorStage) ? h.priorStage : Math.max(0,n.stage-1);
+      n.completed = typeof h.priorCompleted==='boolean' ? h.priorCompleted : false;
+      n.retryDate = h.priorRetryDate ?? null;
+      const idx=n.history.lastIndexOf(h); if(idx>=0)n.history.splice(idx,1);
+      touchNote(n);
+      saveLocal();
+      toast('已取消勾選');
+    }
+  }
+  function openEdit(id){
+    const n = state.notes.find(x=>x.id===id); if(!n) return;
+    editingId=id;
+    $('editInfo').textContent = `開始日期：${displayDate(n.startDate,true)}`;
+    $('editText').value = n.content;
+    $('editModal').classList.add('show');
+  }
+  function saveEdit(){
+    const n = state.notes.find(x=>x.id===editingId);
+    const value = $('editText').value.trim();
+    if(!n || !value) return;
+    n.content=value; touchNote(n); saveLocal();
+    $('editModal').classList.remove('show');
+    editingId=null;
+    toast('修改已儲存');
+  }
+  function deleteNote(id){
+    const n = state.notes.find(x=>x.id===id); if(!n) return;
+    if(!confirm(`確定刪除 ${displayDate(n.startDate)} 開始的單字表？`)) return;
+    const t = nowMs();
+    state.deleted[id] = t;
+    state.notes = state.notes.filter(x=>x.id!==id);
+    saveLocal();
+    toast('已刪除');
+  }
+
+  function mergeStates(aRaw,bRaw){
+    const a=normalizeState(aRaw), b=normalizeState(bRaw), out=emptyState();
+    out.deleted = {...a.deleted};
+    for(const [id,ts] of Object.entries(b.deleted || {})) out.deleted[id] = Math.max(Number(out.deleted[id]||0),Number(ts||0));
+    const map = new Map();
+    for(const n of [...a.notes,...b.notes]){
+      const current = map.get(n.id);
+      if(!current || Number(n.updatedAtMs||0) > Number(current.updatedAtMs||0)) map.set(n.id,clone(n));
+      else if(Number(n.updatedAtMs||0) === Number(current.updatedAtMs||0) && String(n.content).length > String(current.content).length) map.set(n.id,clone(n));
+    }
+    out.notes = [...map.values()].filter(n => Number(out.deleted[n.id]||0) < Number(n.updatedAtMs||0));
+    out.revision = Math.max(a.revision,b.revision)+1;
+    out.updatedAtMs = Math.max(a.updatedAtMs,b.updatedAtMs,nowMs());
+    return out;
+  }
+
+  function setSyncStatus(text,kind=''){
+    const el=$('syncStatus');
+    el.textContent=text;
+    el.className=`sync-status ${kind}`.trim();
+  }
+  function firebaseErrorMessage(error){
+    const code=String(error && error.code || '');
+    if(code.includes('email-already-in-use')) return '這個 Email 已有帳號，請按「登入」。';
+    if(code.includes('invalid-email')) return 'Email 格式不正確。';
+    if(code.includes('weak-password')) return '密碼至少要 6 個字元。';
+    if(code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'Email 或密碼不正確。';
+    if(code.includes('operation-not-allowed')) return 'Firebase 尚未啟用 Email/密碼登入。';
+    if(code.includes('permission-denied')) return 'Firestore 權限規則拒絕存取。';
+    if(code.includes('network-request-failed') || code.includes('unavailable')) return '目前網路無法連線。';
+    return (error && error.message) ? error.message : '發生未知錯誤。';
+  }
+  function initFirebase(){
+    if(!window.firebase){ setSyncStatus('Firebase 載入失敗；本機功能仍可使用。','error'); return; }
+    try{
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      auth=firebase.auth();
+      firestore=firebase.firestore();
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+      auth.onAuthStateChanged(user => handleAuthState(user));
+    }catch(error){ setSyncStatus(`Firebase 初始化失敗：${firebaseErrorMessage(error)}`,'error'); }
+  }
+  async function register(){
+    const email=$('emailInput').value.trim(), password=$('passwordInput').value;
+    if(!email || password.length<6){ alert('請輸入 Email，密碼至少 6 個字元。'); return; }
+    try{
+      setSyncStatus('正在建立帳號…','busy');
+      await auth.createUserWithEmailAndPassword(email,password);
+    }catch(error){ setSyncStatus(firebaseErrorMessage(error),'error'); alert(firebaseErrorMessage(error)); }
+  }
+  async function login(){
+    const email=$('emailInput').value.trim(), password=$('passwordInput').value;
+    if(!email || !password){ alert('請輸入 Email 和密碼。'); return; }
+    try{
+      setSyncStatus('正在登入…','busy');
+      await auth.signInWithEmailAndPassword(email,password);
+    }catch(error){ setSyncStatus(firebaseErrorMessage(error),'error'); alert(firebaseErrorMessage(error)); }
+  }
+  async function logout(){
+    if(auth) await auth.signOut();
+  }
+  async function handleAuthState(user){
+    currentUser=user || null;
+    renderAuth();
+    if(unsubscribeCloud){ unsubscribeCloud(); unsubscribeCloud=null; }
+    if(!user){ cloudDoc=null; lastCloudDigest=''; setSyncStatus('目前只儲存在這台裝置。'); return; }
+    cloudDoc=firestore.doc(`users/${user.uid}/apps/vocab`);
+    setSyncStatus('已登入，正在合併手機／電腦資料…','busy');
+    try{
+      const snap=await cloudDoc.get();
+      const remote=snap.exists ? normalizeState(snap.data().state) : emptyState();
+      const merged=mergeStates(state,remote);
+      applyingRemote=true;
+      state=merged;
+      store.set(APP_KEY,JSON.stringify(state));
+      applyingRemote=false;
+      renderAll();
+      await uploadCloudNow('登入後同步');
+      attachCloudListener();
+    }catch(error){ setSyncStatus(firebaseErrorMessage(error),'error'); }
+  }
+  function scheduleUpload(){
+    clearTimeout(uploadTimer);
+    uploadTimer=setTimeout(()=>uploadCloudNow('自動同步'),120);
+  }
+  async function uploadCloudNow(reason='同步'){
+    if(!currentUser || !cloudDoc) return;
+    try{
+      const payload=normalizeState(state);
+      const localDigest=digest(payload);
+      if(localDigest===lastCloudDigest){
+        setSyncStatus(`已同步：${new Date().toLocaleString('zh-TW',{hour12:false})}`,'ok');
+        return;
+      }
+      setSyncStatus(`${reason}中…`,'busy');
+      await cloudDoc.set({state:payload,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:deviceId()},{merge:true});
+      lastCloudDigest=localDigest;
+      setSyncStatus(`已同步：${new Date().toLocaleString('zh-TW',{hour12:false})}`,'ok');
+    }catch(error){ setSyncStatus(`同步失敗：${firebaseErrorMessage(error)}`,'error'); }
+  }
+  async function pullThenSync(reason='手動同步'){
+    if(!currentUser || !cloudDoc) return;
+    try{
+      setSyncStatus(`${reason}中…`,'busy');
+      const snap=await cloudDoc.get();
+      const remote=snap.exists ? normalizeState(snap.data().state) : emptyState();
+      const merged=mergeStates(state,remote);
+      applyingRemote=true;
+      state=merged;
+      store.set(APP_KEY,JSON.stringify(state));
+      applyingRemote=false;
+      renderAll();
+      lastCloudDigest=digest(remote);
+      await uploadCloudNow(reason);
+    }catch(error){ setSyncStatus(`同步失敗：${firebaseErrorMessage(error)}`,'error'); }
+  }
+  function attachCloudListener(){
+    if(!cloudDoc) return;
+    if(unsubscribeCloud) unsubscribeCloud();
+    unsubscribeCloud=cloudDoc.onSnapshot(async snap => {
+      if(!snap.exists) return;
+      const remote=normalizeState(snap.data().state);
+      const remoteDigest=digest(remote);
+      if(remoteDigest===digest(state) || remoteDigest===lastCloudDigest) return;
+      const merged=mergeStates(state,remote);
+      const changed=digest(merged)!==digest(state);
+      applyingRemote=true;
+      state=merged;
+      store.set(APP_KEY,JSON.stringify(state));
+      applyingRemote=false;
+      renderAll();
+      lastCloudDigest=remoteDigest;
+      setSyncStatus(`已收到另一台裝置更新：${new Date().toLocaleString('zh-TW',{hour12:false})}`,'ok');
+      if(changed && digest(merged)!==remoteDigest) await uploadCloudNow('合併同步');
+    },error=>setSyncStatus(`即時同步中斷：${firebaseErrorMessage(error)}`,'error'));
+  }
+
+  function exportBackup(){
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`英文單字學習器備份_${todayISO().replaceAll('-','')}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  function importBackupFile(file){
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const incoming=normalizeState(JSON.parse(reader.result));
+        state=mergeStates(state,incoming);
+        saveLocal();
+        toast('備份已匯入並合併');
+      }catch(e){ alert('備份檔格式不正確。'); }
+    };
+    reader.readAsText(file);
+  }
+  function migrateLegacyAgain(){
+    const legacy=readLegacyState();
+    if(!legacy.notes.length){ alert('這個瀏覽器找不到舊版資料。請確認使用原本有資料的同一個瀏覽器和同一個網站網址。'); return; }
+    state=mergeStates(state,legacy);
+    saveLocal();
+    showMigrationNotice(`已重新讀取舊版資料：目前共 ${state.notes.length} 份。`);
+    toast('舊版資料已合併');
+  }
+
+  document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===btn));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===btn.dataset.tab));
+    if(btn.dataset.tab==='manage') renderManage();
+  }));
+  $('startDateCode').addEventListener('input',renderSchedule);
+  $('saveNoteBtn').addEventListener('click',saveNewNote);
+  $('clearInputBtn').addEventListener('click',()=>{$('noteInput').value='';$('saveResult').textContent='';});
+  $('showTodayBtn').addEventListener('click',renderToday);
+  $('batchSearch').addEventListener('keydown',e=>{if(e.key==='Enter')renderToday();});
+  document.addEventListener('change',e=>{
+    const target=e.target;
+    if(target.matches('[data-action="toggle"]')) toggleCompletion(target.dataset.id,target.checked);
+  });
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-action]'); if(!btn) return;
+    if(btn.dataset.action==='edit') openEdit(btn.dataset.id);
+    if(btn.dataset.action==='delete') deleteNote(btn.dataset.id);
+  });
+  $('cancelEditBtn').addEventListener('click',()=>{$('editModal').classList.remove('show');editingId=null;});
+  $('saveEditBtn').addEventListener('click',saveEdit);
+  $('editModal').addEventListener('click',e=>{if(e.target===$('editModal'))$('editModal').classList.remove('show');});
+  $('loginBtn').addEventListener('click',login);
+  $('registerBtn').addEventListener('click',register);
+  $('logoutBtn').addEventListener('click',logout);
+  $('syncNowBtn').addEventListener('click',()=>pullThenSync('手動同步'));
+  $('exportBtn').addEventListener('click',exportBackup);
+  $('importBtn').addEventListener('click',()=>$('importFile').click());
+  $('importFile').addEventListener('change',()=>{const f=$('importFile').files[0];if(f)importBackupFile(f);$('importFile').value='';});
+  $('migrateBtn').addEventListener('click',migrateLegacyAgain);
+  window.addEventListener('online',()=>{if(currentUser)pullThenSync('網路恢復同步');});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden && currentUser)pullThenSync('回到前景同步');});
+
+  renderSchedule();
+  renderAll();
+  initFirebase();
+})();
+</script>
+</body>
+</html>

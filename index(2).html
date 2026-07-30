@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<!-- build: v2-relocated-cloud-controls-realtime-fix 2026-07-30 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>全自動單字複習器｜Firebase 雲端同步版</title>
@@ -113,7 +112,19 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 <body>
 <div class="wrap">
 <h1>全自動單字複習器</h1>
-<div class="subtitle">同一個 Google 帳號可在手機與電腦共用單字和複習進度；登入與同步按鈕放在「管理／備份」。</div>
+<div class="subtitle">支援 Google 登入與 Firebase 雲端同步；同一帳號可在手機與電腦共用單字和複習進度。</div>
+
+<div id="cloudBar" class="cloud-bar">
+  <div class="cloud-info">
+    <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
+    <span id="cloudAccount">尚未登入 Google；目前仍只儲存在這台裝置。</span>
+  </div>
+  <div class="cloud-actions">
+    <button id="googleLoginBtn" class="primary" disabled>使用 Google 登入</button>
+    <button id="manualSyncBtn" class="secondary" style="display:none">立即同步</button>
+    <button id="logoutBtn" class="secondary" style="display:none">登出</button>
+  </div>
+</div>
 
 <div class="tabs">
   <button class="tab active" data-tab="today">今天要背</button>
@@ -161,20 +172,6 @@ textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
 </section>
 
 <section id="manage" class="panel">
-  <div class="section-title" style="margin-top:0">Google 登入與雲端同步</div>
-  <div id="cloudBar" class="cloud-bar">
-  <div class="cloud-info">
-    <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
-    <span id="cloudAccount">尚未登入 Google；目前仍只儲存在這台裝置。</span>
-  </div>
-  <div class="cloud-actions">
-    <button id="googleLoginBtn" class="primary" type="button" disabled>使用 Google 登入</button>
-    <button id="manualSyncBtn" class="secondary" type="button" style="display:none">立即同步</button>
-    <button id="logoutBtn" class="secondary" type="button" style="display:none">登出</button>
-  </div>
-</div>
-
-  <div class="section-title">資料管理與備份</div>
   <div class="row">
     <button id="copyRecordsBtn" class="primary">複製全部紀錄</button>
     <button id="pasteRecordsBtn" class="secondary">貼上／合併紀錄</button>
@@ -388,8 +385,6 @@ let cloudSyncEnabled=false;
 let cloudUploadTimer=null;
 let cloudUploadInProgress=false;
 let cloudApplyInProgress=false;
-let cloudLocalDirty=false;
-let cloudResumeTimer=null;
 let lastCloudDigest='';
 let cloudInitializationToken=0;
 
@@ -458,18 +453,10 @@ async function loadFirebaseModules(){
    import(`${base}/firebase-firestore.js`)
   ]);
   const app=appMod.initializeApp(FIREBASE_CONFIG);
-  try{
-   firebaseAuth=authMod.initializeAuth(app,{
-    persistence:[authMod.indexedDBLocalPersistence,authMod.browserLocalPersistence],
-    popupRedirectResolver:authMod.browserPopupRedirectResolver
-   });
-  }catch(error){
-   // 若 SDK 已被初始化，沿用既有 Auth，並明確指定長期保存登入狀態。
-   firebaseAuth=authMod.getAuth(app);
-   await authMod.setPersistence(firebaseAuth,authMod.browserLocalPersistence);
-  }
+  firebaseAuth=authMod.getAuth(app);
   firebaseFirestore=firestoreMod.getFirestore(app);
   firebaseModules={appMod,authMod,firestoreMod};
+  try{await authMod.setPersistence(firebaseAuth,authMod.browserLocalPersistence)}catch(e){}
   updateCloudButtons(firebaseAuth.currentUser);
   $('googleLoginBtn').disabled=false;
   authMod.onAuthStateChanged(firebaseAuth,user=>handleCloudAuthState(user));
@@ -489,9 +476,7 @@ async function googleLogin(){
   provider.setCustomParameters({prompt:'select_account'});
   await firebaseModules.authMod.signInWithPopup(firebaseAuth,provider);
  }catch(error){
-  const message=cloudErrorMessage(error);
-  setCloudUI('Google 登入未完成','error',message);
-  alert(`Google 登入沒有完成：${message}`);
+  setCloudUI('Google 登入未完成','error',cloudErrorMessage(error));
  }finally{
   if($('googleLoginBtn'))$('googleLoginBtn').disabled=false;
  }
@@ -533,7 +518,6 @@ async function uploadCloudNow(reason='自動同步'){
  const payload=normalizeNotebook(db);
  const digest=notebookDigest(payload);
  if(digest===lastCloudDigest){
-  cloudLocalDirty=false;
   setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}｜資料已是最新`);
   return true;
  }
@@ -547,13 +531,11 @@ async function uploadCloudNow(reason='自動同步'){
    updatedBy:getDeviceId()
   },{merge:true});
   lastCloudDigest=digest;
-  cloudLocalDirty=false;
   const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
   safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
   setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}｜最後同步 ${stamp}`);
   return true;
  }catch(error){
-  cloudLocalDirty=true;
   setCloudUI('同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
   return false;
  }finally{
@@ -563,10 +545,8 @@ async function uploadCloudNow(reason='自動同步'){
 
 function scheduleCloudUpload(){
  if(!cloudSyncEnabled||cloudApplyInProgress||!currentCloudUser)return;
- cloudLocalDirty=true;
  clearTimeout(cloudUploadTimer);
- // 讓勾選、編輯、新增在另一台裝置上更快出現，同時合併短時間連續輸入。
- cloudUploadTimer=setTimeout(()=>uploadCloudNow('自動儲存'),100);
+ cloudUploadTimer=setTimeout(()=>uploadCloudNow('自動儲存'),700);
 }
 
 async function resolveInitialCloudData(snapshot,token){
@@ -620,51 +600,26 @@ async function resolveInitialCloudData(snapshot,token){
 function attachCloudListener(token){
  if(stopCloudListener){stopCloudListener();stopCloudListener=null}
  if(!cloudDocRef||!firebaseModules)return;
+ let firstEvent=true;
  stopCloudListener=firebaseModules.firestoreMod.onSnapshot(cloudDocRef,async snapshot=>{
   if(token!==cloudInitializationToken||!currentCloudUser||!snapshot.exists())return;
-  const data=snapshot.data()||{};
-  const remote=data.notebook;
+  const remote=snapshot.data()?.notebook;
   if(!remote||!Array.isArray(remote.notes))return;
   const remoteDigest=notebookDigest(remote);
-  const localDigest=notebookDigest(db);
-
-  // 自己剛上傳的回聲，或兩邊本來就一致，不重複處理。
-  if(remoteDigest===localDigest){
+  if(firstEvent){firstEvent=false;lastCloudDigest=remoteDigest;return}
+  if(remoteDigest===lastCloudDigest||remoteDigest===notebookDigest(db)){
    lastCloudDigest=remoteDigest;
-   cloudLocalDirty=false;
    return;
   }
-  if(String(data.updatedBy||'')===getDeviceId()&&remoteDigest===lastCloudDigest)return;
-
-  setCloudUI('偵測到另一台裝置的更新，正在同步','busy',currentCloudUser.email||'Google 帳號');
-  const hadUnsyncedLocalChange=cloudLocalDirty||cloudUploadInProgress;
+  setCloudUI('偵測到另一台裝置的更新，正在合併','busy',currentCloudUser.email||'Google 帳號');
   const wasEnabled=cloudSyncEnabled;
   cloudSyncEnabled=false;
-  try{
-   if(hadUnsyncedLocalChange){
-    // 兩台剛好同時修改才做安全合併，避免其中一邊的內容消失。
-    await mergeCloudNotebook(remote);
-   }else{
-    // 平常直接採用雲端最新整份資料，刪除、取消勾選也能正確同步。
-    applyNotebookLocally(remote);
-   }
-   lastCloudDigest=remoteDigest;
-  }finally{
-   cloudSyncEnabled=wasEnabled;
-  }
-
-  if(hadUnsyncedLocalChange){
-   cloudLocalDirty=true;
-   await uploadCloudNow('跨裝置合併');
-  }else{
-   cloudLocalDirty=false;
-   const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
-   safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
-   setCloudUI('已接收另一台裝置更新','ok',`${currentCloudUser.email||'Google 帳號'}｜${stamp}`);
-  }
+  await mergeCloudNotebook(remote);
+  lastCloudDigest=remoteDigest;
+  cloudSyncEnabled=wasEnabled;
+  await uploadCloudNow('跨裝置合併');
  },error=>{
   setCloudUI('即時同步中斷，本機資料仍安全保留','error',cloudErrorMessage(error));
-  // 網路恢復或手機回到前景時，下面的 resume 同步會重新檢查。
  });
 }
 
@@ -688,57 +643,22 @@ async function handleCloudAuthState(user){
 
 async function manualCloudSync(){
  if(!currentCloudUser||!cloudDocRef||!firebaseModules)return;
- const button=$('manualSyncBtn');
- if(button)button.disabled=true;
+ $('manualSyncBtn').disabled=true;
  try{
   setCloudUI('正在手動同步','busy',currentCloudUser.email||'Google 帳號');
   const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
   if(snapshot.exists()&&Array.isArray(snapshot.data()?.notebook?.notes)){
    const remote=snapshot.data().notebook;
-   const remoteDigest=notebookDigest(remote);
-   if(remoteDigest!==notebookDigest(db)){
-    if(cloudLocalDirty||cloudUploadInProgress)await mergeCloudNotebook(remote);
-    else applyNotebookLocally(remote);
-   }
-   lastCloudDigest=remoteDigest;
+   if(notebookDigest(remote)!==notebookDigest(db))await mergeCloudNotebook(remote);
+   lastCloudDigest=notebookDigest(remote);
   }
   cloudSyncEnabled=true;
-  if(cloudLocalDirty||notebookDigest(db)!==lastCloudDigest){
-   await uploadCloudNow('手動同步');
-  }else{
-   const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
-   safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
-   setCloudUI('已同步','ok',`${currentCloudUser.email||'Google 帳號'}｜${stamp}`);
-  }
+  await uploadCloudNow('手動同步');
  }catch(error){
   setCloudUI('手動同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
  }finally{
-  if(button)button.disabled=false;
+  $('manualSyncBtn').disabled=false;
  }
-}
-
-function syncCloudAfterResume(){
- if(!currentCloudUser||!cloudDocRef||!firebaseModules)return;
- clearTimeout(cloudResumeTimer);
- cloudResumeTimer=setTimeout(async()=>{
-  if(document.visibilityState==='hidden')return;
-  try{
-   const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
-   if(snapshot.exists()&&Array.isArray(snapshot.data()?.notebook?.notes)){
-    const remote=snapshot.data().notebook;
-    const remoteDigest=notebookDigest(remote);
-    if(remoteDigest!==notebookDigest(db)){
-     if(cloudLocalDirty||cloudUploadInProgress)await mergeCloudNotebook(remote);
-     else applyNotebookLocally(remote);
-     lastCloudDigest=remoteDigest;
-    }
-   }
-   cloudSyncEnabled=true;
-   if(cloudLocalDirty||notebookDigest(db)!==lastCloudDigest)await uploadCloudNow('恢復連線同步');
-  }catch(error){
-   setCloudUI('等待網路恢復，本機資料仍安全保留','warn',cloudErrorMessage(error));
-  }
- },180);
 }
 
 function emptyDB(){return {version:2,notes:[]}}
@@ -1780,16 +1700,6 @@ $('logoutBtn').onclick=cloudLogout;
 const now=new Date();$('startDateCode').value=String(now.getMonth()+1)+String(now.getDate()).padStart(2,'0');
 window.addEventListener('beforeunload',()=>{if(exportObjectURL)URL.revokeObjectURL(exportObjectURL)});
 renderSchedulePreview();updateStats();
-window.addEventListener('online',syncCloudAfterResume);
-window.addEventListener('focus',syncCloudAfterResume);
-document.addEventListener('visibilitychange',()=>{
- if(document.visibilityState==='hidden'){
-  if(cloudLocalDirty)uploadCloudNow('切換裝置前同步');
- }else{
-  syncCloudAfterResume();
- }
-});
-window.addEventListener('pagehide',()=>{if(cloudLocalDirty)uploadCloudNow('離開前同步')});
 loadFirebaseModules();
 if(!PERSISTENT_STORAGE_AVAILABLE){
  const subtitle=document.querySelector('.subtitle');

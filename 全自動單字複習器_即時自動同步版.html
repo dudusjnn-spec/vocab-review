@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全自動單字複習器｜即時自動同步版</title>
+<!-- build: realtime-auto-sync-v8-email-password-link-migration 2026-09-02 -->
+<style>
+:root{
+  --bg:#f4f6f8;--panel:#fff;--text:#17202a;--muted:#667085;--line:#dfe3e8;
+  --primary:#1f6feb;--danger:#c62828;--ok:#18794e;--warn:#9a6700;
+  --shadow:0 8px 30px rgba(16,24,40,.08)
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif}
+.wrap{max-width:1050px;margin:0 auto;padding:18px}
+h1{font-size:26px;margin:4px 0}
+.subtitle{color:var(--muted);font-size:14px;margin-bottom:16px;line-height:1.6}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid var(--line);background:#fff;padding:11px 16px;border-radius:12px;cursor:pointer;font-weight:800}
+.tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.panel.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.stat{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;cursor:pointer;text-align:left;transition:.15s}
+.stat:hover{transform:translateY(-1px);box-shadow:0 5px 18px rgba(16,24,40,.09);border-color:#b7c9e8}
+.stat:focus{outline:3px solid rgba(31,111,235,.18)}
+.stat b{display:block;font-size:25px;margin-top:5px}
+.stat span{font-size:12px;color:var(--muted)}
+.stat small{display:block;color:var(--primary);font-weight:700;margin-top:6px}
+button,input,textarea{font:inherit}
+button,.tab,.stat,.action-link{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button{border:0;border-radius:12px;padding:11px 15px;font-weight:800;cursor:pointer}
+.primary{background:var(--primary);color:#fff}
+.secondary{background:#edf2f7;color:var(--text)}
+.danger{background:#ffebee;color:var(--danger)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:220px}
+label{display:block;font-size:13px;color:var(--muted);margin:11px 0 5px;font-weight:750}
+input,textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px;background:#fff;color:var(--text)}
+textarea{min-height:290px;resize:vertical;line-height:1.7;font-size:16px}
+.hint{font-size:13px;color:var(--muted);line-height:1.6}
+.schedule{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.chip{border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:9px 11px;min-width:92px}
+.chip b{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.chip span{font-weight:800}
+.empty{text-align:center;padding:46px 15px;color:var(--muted)}
+.section-title{font-size:18px;font-weight:850;margin:20px 0 8px}
+.due-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.due-card{border:1px solid var(--line);border-radius:16px;background:#fff;overflow:hidden}
+.due-card.completed-today{border-color:#9bd3b5;background:#f7fcf9}
+.due-card.completed-today .due-title{text-decoration:none;color:var(--ok)}
+.due-head{display:flex;gap:12px;align-items:flex-start;padding:14px}
+.check-wrap{padding-top:2px}
+.complete-check{width:23px;height:23px;cursor:pointer;accent-color:var(--ok)}
+.due-main{flex:1;min-width:0}
+.due-title{font-size:18px;font-weight:850}
+.due-meta{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.55}
+.status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800}
+.status.today{background:#fff4d6;color:var(--warn)}
+.status.overdue{background:#ffebee;color:var(--danger)}
+.status.future{background:#edf2f7;color:#475467}
+.status.done{background:#e8f5ee;color:var(--ok)}
+.card-actions{display:flex;gap:8px;align-items:center;white-space:nowrap}
+.delete-note{background:#ffebee;color:var(--danger);white-space:nowrap}
+.edit-note{background:#edf2f7;color:var(--text);white-space:nowrap}
+.note-body{display:block;white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--line);padding:18px;background:#fbfcfe;font-size:17px;line-height:1.75;max-height:320px;overflow:auto}
+.inline-editor{border-top:1px solid var(--line);padding:14px;background:#fbfcfe}
+.inline-editor textarea{min-height:260px;font-size:17px;line-height:1.75;background:#fff}
+.inline-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:10px;flex-wrap:wrap}
+.list{margin-top:15px}
+.item{display:grid;grid-template-columns:.7fr 1.6fr .7fr .75fr auto;gap:9px;align-items:center;border-top:1px solid var(--line);padding:11px 2px;font-size:14px}
+.preview{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#344054}
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#edf2f7;font-size:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.42);display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
+.modal.show{display:flex}
+.modalbox{background:#fff;border-radius:17px;max-width:760px;width:100%;padding:20px;box-shadow:var(--shadow);max-height:92vh;overflow:auto}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#17202a;color:#fff;padding:11px 15px;border-radius:11px;display:none;z-index:20;max-width:90%;text-align:center}
+.toast.show{display:block}
+.action-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-radius:12px;padding:11px 15px;font-weight:800;background:var(--primary);color:#fff;cursor:pointer}
+.export-help{border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:12px;margin:12px 0;color:var(--muted);font-size:13px;line-height:1.6}
+.export-code{width:100%;min-height:150px;font-size:12px;line-height:1.45;background:#fbfcfe}
+.data-count{border-radius:12px;padding:11px 13px;margin:12px 0;font-weight:800}
+.data-count.ok{background:#e8f5ee;color:var(--ok)}
+.data-count.empty{background:#ffebee;color:var(--danger)}
+.disabled-link{pointer-events:none;opacity:.45}
+.import-zone{border:1px solid var(--line);border-radius:13px;padding:14px;background:#f8fafc;margin-top:12px}
+.import-zone textarea{min-height:170px;font-size:12px;line-height:1.45;background:#fff}
+.record-summary{border:1px solid var(--line);border-radius:12px;padding:12px;background:#f8fafc;margin:12px 0;font-size:14px;line-height:1.65}
+.record-summary b{color:var(--primary)}
+.merge-result{border-radius:12px;padding:12px;margin-top:12px;background:#e8f5ee;color:var(--ok);font-weight:750;display:none}
+.transfer-text{min-height:260px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.45}
+
+.filter-banner{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#f8fafc;border:1px solid var(--line);padding:11px 13px;border-radius:12px;margin-top:12px}
+
+.cloud-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px 14px;margin:0 0 14px;box-shadow:0 4px 16px rgba(16,24,40,.05)}
+.cloud-info{min-width:220px;flex:1}
+.cloud-info b{display:block;font-size:14px;margin-bottom:3px}
+.cloud-info span{display:block;color:var(--muted);font-size:12px;line-height:1.45;word-break:break-word}
+.cloud-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cloud-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#98a2b3;margin-right:7px;vertical-align:1px}
+.cloud-dot.ok{background:#18794e}.cloud-dot.warn{background:#d97706}.cloud-dot.error{background:#c62828}.cloud-dot.busy{background:#1f6feb}
+@media(max-width:600px){.cloud-actions{width:100%}.cloud-actions button{flex:1;min-width:120px}.cloud-info{min-width:0}}
+@media(max-width:760px){
+ .stats{grid-template-columns:repeat(2,1fr)}
+ .item{grid-template-columns:1fr 1.4fr}
+ .item>*:nth-child(n+3){font-size:12px}
+ .due-head{flex-wrap:wrap}
+ .card-actions{margin-left:35px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>全自動單字複習器</h1>
+<div class="subtitle">同一個 Google 帳號可在手機與電腦即時共用單字和複習進度；任何修改都會自動同步，不必按「立即同步」。</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="today">今天要背</button>
+  <button class="tab" data-tab="add">新增單字表</button>
+  <button class="tab" data-tab="manage">管理／備份</button>
+</div>
+
+<section id="today" class="panel active">
+  <div class="stats">
+    <button class="stat" data-stat="due"><span>今天應複習</span><b id="statDue">0</b><small>點我查看</small></button>
+    <button class="stat" data-stat="overdue"><span>其中逾期</span><b id="statOverdue">0</b><small>點我查看</small></button>
+    <button class="stat" data-stat="all"><span>全部單字表</span><b id="statAll">0</b><small>點我查看</small></button>
+    <button class="stat" data-stat="done"><span>完成90天</span><b id="statDone">0</b><small>點我查看</small></button>
+  </div>
+
+  <div class="row">
+    <div class="grow">
+      <label for="batchSearch">查看特定開始日期（選填）</label>
+      <input id="batchSearch" inputmode="numeric" placeholder="例如 724；有輸入就查看該日期，留白才看今天全部">
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="startBtn" class="primary">打開今天要背的內容</button>
+    </div>
+  </div>
+
+  <div id="todayList" class="due-list"></div>
+  <div id="todayEmpty" class="empty">按「打開今天要背的內容」，系統會一次列出今天所有到期單字表。</div>
+</section>
+
+<section id="add" class="panel">
+  <label for="startDateCode">這份單字表的開始日期</label>
+  <input id="startDateCode" inputmode="numeric" placeholder="例如 723 或 20260723">
+  <div class="hint" style="margin-top:9px">自動排定第 0、1、3、7、14、30、60、90 天：</div>
+  <div id="schedulePreview" class="schedule"></div>
+  <div id="dateError" class="hint" style="color:var(--danger)"></div>
+
+  <label for="noteInput">單字記事本（完全自由輸入）</label>
+  <textarea id="noteInput" placeholder="直接貼上你自己的單字內容，不用翻譯、不用固定格式。"></textarea>
+  <div class="row" style="margin-top:14px">
+    <button id="saveNoteBtn" class="primary">儲存並自動安排全部日期</button>
+    <button id="clearInputBtn" class="secondary">清空</button>
+  </div>
+  <div id="saveResult" class="hint" style="margin-top:10px"></div>
+</section>
+
+<section id="manage" class="panel">
+  <div class="section-title" style="margin-top:0">帳號與跨裝置同步</div>
+  <div id="cloudBar" class="cloud-bar">
+    <div class="cloud-info">
+      <b><span id="cloudDot" class="cloud-dot busy"></span><span id="cloudStatus">雲端同步功能載入中</span></b>
+      <span id="cloudAccount">尚未登入；目前仍只儲存在這台裝置。</span>
+    </div>
+    <div class="cloud-actions">
+      <button id="manualSyncBtn" class="secondary" style="display:none">立即同步</button>
+      <button id="logoutBtn" class="secondary" style="display:none">登出</button>
+    </div>
+  </div>
+
+  <div id="emailAuthBox" style="border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:14px;background:#fff">
+    <div class="hint" style="margin-bottom:10px">手機和電腦請使用同一組 Email／密碼。若你原本是用 Google 登入且已有雲端資料，請先在已登入的電腦按「把密碼綁定到目前帳號」，不要另外建立新帳號。</div>
+    <label for="authEmail">Email</label>
+    <input id="authEmail" type="email" autocomplete="username" placeholder="you@example.com">
+    <label for="authPassword">密碼（至少 6 個字元）</label>
+    <input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 個字元">
+    <div class="row" style="margin-top:12px">
+      <button id="emailLoginBtn" class="primary" type="button">登入</button>
+      <button id="emailCreateBtn" class="secondary" type="button">第一次使用：建立帳號</button>
+      <button id="linkPasswordBtn" class="secondary" type="button" style="display:none">把密碼綁定到目前帳號</button>
+      <button id="googleLoginBtn" class="secondary" type="button">舊資料用：Google 登入</button>
+    </div>
+    <div id="authMessage" class="hint" style="margin-top:10px"></div>
+  </div>
+
+  <div class="hint" style="margin:-4px 0 16px">登入後，新增、編輯、勾選、取消勾選與刪除都會在背景自動同步；「立即同步」只在網路異常時使用。</div>
+  <div class="row">
+    <button id="copyRecordsBtn" class="primary">複製全部紀錄</button>
+    <button id="pasteRecordsBtn" class="secondary">貼上／合併紀錄</button>
+    <button id="exportBtn" class="secondary">匯出完整移轉包</button>
+    <button id="importBtn" class="secondary">匯入備份檔</button>
+    <input id="importFile" type="file" accept=".json" style="display:none">
+  </div>
+
+</section>
+</div>
+
+<div id="viewModal" class="modal">
+  <div class="modalbox">
+    <div class="row" style="justify-content:space-between">
+      <h3 id="viewTitle" style="margin:0"></h3>
+      <button id="closeViewBtn" class="secondary">關閉</button>
+    </div>
+    <div id="viewList" class="due-list"></div>
+  </div>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modalbox">
+    <h3 style="margin-top:0">編輯單字表</h3>
+    <div id="editDateLabel" class="hint"></div>
+    <textarea id="editTextarea" style="min-height:340px"></textarea>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      <button id="cancelEditBtn" class="secondary">取消</button>
+      <button id="saveEditBtn" class="primary">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="deleteOneModal" class="modal">
+  <div class="modalbox" style="max-width:460px">
+    <h3 style="margin-top:0">刪除這份單字表？</h3>
+    <div id="deleteOneLabel" class="hint" style="font-size:15px;color:var(--text);margin:10px 0 16px"></div>
+    <div class="hint" style="margin-bottom:16px;color:var(--danger)">刪除後無法復原。</div>
+    <div class="row" style="justify-content:flex-end">
+      <button id="cancelDeleteOneBtn" class="secondary">取消</button>
+      <button id="confirmDeleteOneBtn" class="danger">確定刪除</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="recordTransferModal" class="modal">
+  <div class="modalbox" style="max-width:720px">
+    <div class="row" style="justify-content:space-between">
+      <h3 id="recordTransferTitle" style="margin:0">紀錄轉移</h3>
+      <button id="closeRecordTransferBtn" class="secondary">關閉</button>
+    </div>
+
+    <div id="recordTransferSummary" class="record-summary"></div>
+
+    <textarea id="recordTransferText" class="transfer-text"
+      placeholder="在這裡貼上從另一份程式複製的完整紀錄"></textarea>
+
+    <div id="recordCopyActions" class="row" style="margin-top:12px;display:none">
+      <button id="copyRecordTextBtn" class="primary">再次複製紀錄</button>
+    </div>
+
+    <div id="recordPasteActions" class="row" style="margin-top:12px;display:none">
+      <button id="mergeRecordTextBtn" class="primary">合併套入</button>
+      <button id="replaceRecordTextBtn" class="danger">完全覆蓋目前紀錄</button>
+    </div>
+
+    <div id="recordMergeResult" class="merge-result"></div>
+  </div>
+</div>
+
+<div id="importModal" class="modal">
+  <div class="modalbox" style="max-width:680px">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0">匯入／救援資料</h3>
+      <button id="closeImportBtn" class="secondary">關閉</button>
+    </div>
+
+    <div class="import-zone">
+      <b>方法一：選擇之前下載的 JSON 備份檔</b>
+      <div class="row" style="margin-top:10px">
+        <button id="chooseImportFileBtn" class="primary">選擇備份檔</button>
+        <span id="selectedImportFile" class="hint">尚未選擇檔案</span>
+      </div>
+    </div>
+
+    <div class="import-zone">
+      <b>方法二：貼上之前複製的完整備份內容</b>
+      <textarea id="importBackupText" placeholder='貼上包含 "version" 和 "notes" 的 JSON 內容'></textarea>
+      <div class="row" style="margin-top:10px">
+        <button id="restorePastedBtn" class="primary">從貼上的內容還原</button>
+      </div>
+    </div>
+
+    <div class="import-zone">
+      <b>方法三：搜尋這個頁面目前能讀到的舊版資料</b>
+      <div class="hint" style="margin-top:6px">
+        只能搜尋相同瀏覽器儲存空間。另一個 ChatGPT 預覽頁或另一個檔案路徑的資料，瀏覽器可能不允許讀取。
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="recoverLegacyBtn" class="secondary">搜尋並救援舊版資料</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="exportModal" class="modal">
+  <div class="modalbox" style="max-width:650px">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0">匯出完整移轉包</h3>
+      <button id="closeExportBtn" class="secondary">關閉</button>
+    </div>
+    <div id="exportDataCount" class="data-count"></div>
+    <div id="exportHelp" class="export-help"></div>
+    <div class="row">
+      <button id="downloadBackupBtn" class="primary">儲存完整移轉包</button>
+      <button id="shareBackupBtn" class="secondary" style="display:none">分享／儲存移轉包</button>
+      <button id="copyBackupBtn" class="secondary">複製完整程式原始碼</button>
+    </div>
+    <label for="exportBackupText">完整移轉包原始碼（下載失敗時才需要複製）</label>
+    <textarea id="exportBackupText" class="export-code" readonly></textarea>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+<script>
+(() => {
+'use strict';
+
+// iPhone / ChatGPT / Quick Look 預覽有時會封鎖 localStorage。
+// 舊版在啟動時直接存取 localStorage，一被封鎖就會讓整段程式停止，造成所有按鈕都沒反應。
+// 這裡改成安全儲存層：可用時永久儲存；被封鎖時退回本頁記憶體，至少所有功能仍可操作。
+const __memoryStorage=new Map();
+const safeStorage={
+ getItem(key){
+  const k=String(key);
+  try{
+   const value=window.localStorage.getItem(k);
+   if(value!==null)__memoryStorage.set(k,value);
+   return value!==null?value:(__memoryStorage.has(k)?__memoryStorage.get(k):null);
+  }catch(e){
+   return __memoryStorage.has(k)?__memoryStorage.get(k):null;
+  }
+ },
+ setItem(key,value){
+  const k=String(key),v=String(value);
+  __memoryStorage.set(k,v);
+  try{window.localStorage.setItem(k,v);return true}catch(e){return false}
+ },
+ removeItem(key){
+  const k=String(key);
+  __memoryStorage.delete(k);
+  try{window.localStorage.removeItem(k)}catch(e){}
+ },
+ clear(){
+  __memoryStorage.clear();
+  try{window.localStorage.clear()}catch(e){}
+ },
+ keys(){
+  const keys=new Set(__memoryStorage.keys());
+  try{
+   for(let i=0;i<window.localStorage.length;i++){
+    const key=window.localStorage.key(i);
+    if(key!==null)keys.add(key);
+   }
+  }catch(e){}
+  return [...keys];
+ },
+ key(index){return this.keys()[index]??null},
+ get length(){return this.keys().length}
+};
+function persistentStorageWorks(){
+ const key='__auto_vocab_storage_test__';
+ try{
+  window.localStorage.setItem(key,'1');
+  window.localStorage.removeItem(key);
+  return true;
+ }catch(e){return false}
+}
+const PERSISTENT_STORAGE_AVAILABLE=persistentStorageWorks();
+
+const STORAGE_KEY='auto_vocab_notebook_v2';
+const RECOVERY_KEY='auto_vocab_notebook_v2_last_good';
+const OFFSETS=[0,1,3,7,14,30,60,90];
+let db=loadDB(), editingId=null, manageFilter='all';
+const $=id=>document.getElementById(id);
+
+// Firebase 雲端同步：同一個 Google 帳號在手機與電腦共用一份資料。
+const FIREBASE_CONFIG={
+ apiKey:'AIzaSyCc_pQRpQo2CDiYehk8iykUpMEJ2vp-ti4',
+ authDomain:'vocab-review-c809c.firebaseapp.com',
+ projectId:'vocab-review-c809c',
+ storageBucket:'vocab-review-c809c.firebasestorage.app',
+ messagingSenderId:'621726593043',
+ appId:'1:621726593043:web:29100790a63c8c0bfb0fe6'
+};
+const FIREBASE_SDK_VERSION='12.16.0';
+const CLOUD_LAST_SYNC_KEY='auto_vocab_cloud_last_sync';
+const CLOUD_DEVICE_KEY='auto_vocab_cloud_device_id';
+let firebaseModules=null;
+let firebaseAuth=null;
+let firebaseFirestore=null;
+let currentCloudUser=null;
+let cloudDocRef=null;
+let stopCloudListener=null;
+let cloudSyncEnabled=false;
+let cloudUploadTimer=null;
+let cloudUploadInProgress=false;
+let cloudApplyInProgress=false;
+let lastCloudDigest='';
+let cloudInitializationToken=0;
+let firebaseAuthObserverBound=false;
+let firebaseLoadPromise=null;
+
+function getDeviceId(){
+ let id=safeStorage.getItem(CLOUD_DEVICE_KEY);
+ if(!id){
+  id=`device_${uuid()}`;
+  safeStorage.setItem(CLOUD_DEVICE_KEY,id);
+ }
+ return id;
+}
+
+function legacyTimestamp(note){
+ const direct=Number(note?.updatedAtMs||note?.createdAtMs||0);
+ if(Number.isFinite(direct)&&direct>0)return direct;
+ const parsed=Date.parse(note?.updatedAt||note?.createdAt||'');
+ return Number.isFinite(parsed)?parsed:0;
+}
+
+function normalizeCloudNote(note){
+ if(!note||!note.startDate||!String(note.content||'').trim())return null;
+ const createdAtMs=Number(note.createdAtMs||Date.parse(note.createdAt||'')||legacyTimestamp(note)||0);
+ const updatedAtMs=Number(note.updatedAtMs||Date.parse(note.updatedAt||'')||createdAtMs||0);
+ return {
+  ...JSON.parse(JSON.stringify(note)),
+  id:String(note.id||uuid()),
+  startDate:String(note.startDate),
+  content:String(note.content||''),
+  schedule:Array.isArray(note.schedule)&&note.schedule.length===8?note.schedule.map(String):buildSchedule(String(note.startDate)),
+  stage:Math.max(0,Number(note.stage||0)),
+  retryDate:note.retryDate?String(note.retryDate):null,
+  completed:Boolean(note.completed),
+  history:Array.isArray(note.history)?JSON.parse(JSON.stringify(note.history)):[],
+  createdAt:note.createdAt||todayISO(),
+  updatedAt:note.updatedAt||todayISO(),
+  createdAtMs:Number.isFinite(createdAtMs)?createdAtMs:0,
+  updatedAtMs:Number.isFinite(updatedAtMs)?updatedAtMs:0
+ };
+}
+
+function normalizeNotebook(value){
+ const notes=(Array.isArray(value?.notes)?value.notes:[]).map(normalizeCloudNote).filter(Boolean);
+ const deleted=value?.deleted&&typeof value.deleted==='object'?{...value.deleted}:{};
+ return {version:3,notes,deleted};
+}
+
+function touchNote(note){
+ const now=Date.now();
+ note.updatedAt=todayISO();
+ note.updatedAtMs=now;
+ if(!note.createdAt)note.createdAt=todayISO();
+ if(!Number(note.createdAtMs))note.createdAtMs=now;
+}
+
+function notebookDigest(value=db){
+ try{
+  const normalized=normalizeNotebook(value);
+  normalized.notes.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  normalized.deleted=Object.fromEntries(Object.entries(normalized.deleted||{}).sort(([a],[b])=>a.localeCompare(b)));
+  return JSON.stringify(normalized);
+ }catch(e){return ''}
+}
+
+function setCloudUI(status,kind='busy',accountText=null){
+ const statusEl=$('cloudStatus');
+ const dot=$('cloudDot');
+ if(statusEl)statusEl.textContent=status;
+ if(dot)dot.className=`cloud-dot ${kind}`;
+ if(accountText!==null&&$('cloudAccount'))$('cloudAccount').textContent=accountText;
+}
+
+function updateCloudButtons(user){
+ if(!$('googleLoginBtn'))return;
+ const providers=user&&Array.isArray(user.providerData)?user.providerData.map(p=>p&&p.providerId).filter(Boolean):[];
+ const hasPassword=providers.includes('password');
+ $('googleLoginBtn').style.display=user?'none':'inline-flex';
+ if($('emailLoginBtn'))$('emailLoginBtn').style.display=user?'none':'inline-flex';
+ if($('emailCreateBtn'))$('emailCreateBtn').style.display=user?'none':'inline-flex';
+ if($('linkPasswordBtn'))$('linkPasswordBtn').style.display=(user&&!hasPassword)?'inline-flex':'none';
+ $('manualSyncBtn').style.display=user?'inline-flex':'none';
+ $('logoutBtn').style.display=user?'inline-flex':'none';
+ $('googleLoginBtn').disabled=false;
+ if($('emailLoginBtn'))$('emailLoginBtn').disabled=false;
+ if($('emailCreateBtn'))$('emailCreateBtn').disabled=false;
+ if($('linkPasswordBtn'))$('linkPasswordBtn').disabled=false;
+ $('manualSyncBtn').disabled=!user;
+ if(user&&$('authEmail')&&!$('authEmail').value)$('authEmail').value=user.email||'';
+}
+
+function renderCloudSignedOut(){
+ cloudSyncEnabled=false;
+ currentCloudUser=null;
+ cloudDocRef=null;
+ lastCloudDigest='';
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ updateCloudButtons(null);
+ setCloudUI('尚未登入，現在只儲存在這台裝置','warn','請在手機與電腦使用同一組帳號登入。');
+}
+
+function cloudErrorMessage(error){
+ const code=String(error?.code||'');
+ if(code.includes('popup-blocked'))return '登入視窗被瀏覽器阻擋。請用 Safari 或 Chrome 直接開啟這個網站，允許彈出式視窗後再按一次。';
+ if(code.includes('popup-closed-by-user'))return '登入視窗被關閉，尚未登入；請再按一次並完成帳號選擇。';
+ if(code.includes('unauthorized-domain'))return '這個網站網域尚未加入 Firebase 授權網域。';
+ if(code.includes('permission-denied'))return 'Firestore 權限被拒絕，請確認安全規則已發布。';
+ if(code.includes('operation-not-allowed'))return 'Firebase 尚未啟用 Email/密碼登入。請到 Firebase Console → Authentication → Sign-in method → Email/Password 啟用後再試。';
+ if(code.includes('email-already-in-use'))return '這個 Email 已有 Firebase 帳號。若原本是 Google 登入，請先用 Google 登入舊帳號，再按「把密碼綁定到目前帳號」。';
+ if(code.includes('wrong-password')||code.includes('invalid-credential'))return 'Email 或密碼不正確；若這個帳號以前只用 Google 登入，請先在已登入的電腦把密碼綁定到原帳號。';
+ if(code.includes('weak-password'))return '密碼太短，至少需要 6 個字元。';
+ if(code.includes('invalid-email'))return 'Email 格式不正確。';
+ if(code.includes('network-request-failed')||code.includes('unavailable'))return '目前網路無法連線到 Firebase，資料仍保留在本機。';
+ return error?.message||'發生未知錯誤。';
+}
+
+async function loadFirebaseModules(){
+ if(firebaseModules&&firebaseAuth&&firebaseFirestore)return true;
+ if(firebaseLoadPromise)return firebaseLoadPromise;
+
+ firebaseLoadPromise=(async()=>{
+  try{
+   setCloudUI('正在載入帳號與雲端同步','busy');
+   if(!window.firebase||typeof window.firebase.initializeApp!=='function'){
+    throw new Error('Firebase SDK 沒有載入；請確認網路正常後重新整理頁面。');
+   }
+
+   const app=window.firebase.apps&&window.firebase.apps.length
+    ? window.firebase.app()
+    : window.firebase.initializeApp(FIREBASE_CONFIG);
+
+   firebaseAuth=app.auth();
+   firebaseFirestore=app.firestore();
+
+   // 用 compat SDK 包一層，讓下方原本的同步程式不必改動資料邏輯。
+   firebaseModules={
+    authMod:{
+     GoogleAuthProvider:window.firebase.auth.GoogleAuthProvider,
+     EmailAuthProvider:window.firebase.auth.EmailAuthProvider,
+     browserLocalPersistence:window.firebase.auth.Auth.Persistence.LOCAL,
+     setPersistence:(auth,persistence)=>auth.setPersistence(persistence),
+     onAuthStateChanged:(auth,handler)=>auth.onAuthStateChanged(handler),
+     getRedirectResult:auth=>auth.getRedirectResult(),
+     signInWithPopup:(auth,provider)=>auth.signInWithPopup(provider),
+     signInWithRedirect:(auth,provider)=>auth.signInWithRedirect(provider),
+     signInWithEmailAndPassword:(auth,email,password)=>auth.signInWithEmailAndPassword(email,password),
+     createUserWithEmailAndPassword:(auth,email,password)=>auth.createUserWithEmailAndPassword(email,password),
+     linkWithCredential:(user,credential)=>user.linkWithCredential(credential),
+     signOut:auth=>auth.signOut()
+    },
+    firestoreMod:{
+     doc:(firestore,...segments)=>firestore.doc(segments.join('/')),
+     getDoc:ref=>ref.get(),
+     setDoc:(ref,data,options)=>ref.set(data,options),
+     serverTimestamp:()=>window.firebase.firestore.FieldValue.serverTimestamp(),
+     onSnapshot:(ref,next,error)=>ref.onSnapshot(next,error)
+    }
+   };
+
+   try{await firebaseModules.authMod.setPersistence(firebaseAuth,firebaseModules.authMod.browserLocalPersistence)}catch(e){}
+   updateCloudButtons(firebaseAuth.currentUser);
+
+   if(!firebaseAuthObserverBound){
+    firebaseAuthObserverBound=true;
+    firebaseModules.authMod.onAuthStateChanged(firebaseAuth,user=>handleCloudAuthState(user));
+   }
+
+   // 保留舊版曾經啟動過 redirect 的回傳處理，但新登入流程優先使用 popup。
+   try{await firebaseModules.authMod.getRedirectResult(firebaseAuth)}catch(error){
+    setCloudUI('Google 登入未完成','error',cloudErrorMessage(error));
+   }
+   return true;
+  }catch(error){
+   firebaseModules=null;
+   firebaseAuth=null;
+   firebaseFirestore=null;
+   updateCloudButtons(null);
+   setCloudUI('雲端功能載入失敗','error',cloudErrorMessage(error));
+   return false;
+  }finally{
+   firebaseLoadPromise=null;
+  }
+ })();
+
+ return firebaseLoadPromise;
+}
+
+async function googleLogin(){
+ const loginBtn=$('googleLoginBtn');
+ if(loginBtn)loginBtn.disabled=true;
+ setCloudUI('正在準備 Google 登入','busy','請稍候，登入視窗會自動開啟。');
+
+ try{
+  // SDK 已在頁面開啟時預先載入。已就緒時不要先 await，
+  // 讓 popup 保持在這次手指點擊的使用者動作裡，避免 iPhone 判定為非使用者觸發而阻擋。
+  if(!firebaseModules||!firebaseAuth){
+   const ready=await loadFirebaseModules();
+   if(!ready||!firebaseModules||!firebaseAuth){
+    throw new Error('Google 登入功能沒有載入成功。請確認手機網路正常，並使用 Safari 或 Chrome 直接開啟網站後重新整理。');
+   }
+  }
+
+  const provider=new firebaseModules.authMod.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:'select_account'});
+
+  // GitHub Pages 無法代理 Firebase 的 /__/auth 路徑；在新版 Safari/Chrome 上
+  // redirect 登入可能受第三方儲存限制，因此這裡直接使用使用者點擊觸發的 popup。
+  setCloudUI('Google 登入視窗已開啟','busy','請在新視窗選擇帳號；完成後會自動同步。');
+  await firebaseModules.authMod.signInWithPopup(firebaseAuth,provider);
+ }catch(error){
+  const message=cloudErrorMessage(error);
+  setCloudUI('Google 登入未完成','error',message);
+  // 手機上即使狀態區不在可視範圍，也一定讓使用者看到原因，避免「按了沒反應」。
+  alert(`Google 登入沒有完成：${message}`);
+ }finally{
+  if(loginBtn)loginBtn.disabled=false;
+ }
+}
+
+
+function readEmailPasswordInputs(){
+ const email=String($('authEmail')?.value||'').trim();
+ const password=String($('authPassword')?.value||'');
+ if(!email)throw new Error('請先輸入 Email。');
+ if(password.length<6)throw new Error('密碼至少需要 6 個字元。');
+ return {email,password};
+}
+
+function showAuthMessage(message,kind=''){
+ const el=$('authMessage');
+ if(!el)return;
+ el.textContent=message||'';
+ el.style.color=kind==='error'?'var(--danger)':kind==='ok'?'var(--ok)':'var(--muted)';
+}
+
+async function ensureFirebaseReady(){
+ if(firebaseModules&&firebaseAuth)return true;
+ return await loadFirebaseModules();
+}
+
+async function emailPasswordLogin(){
+ const btn=$('emailLoginBtn');
+ if(btn)btn.disabled=true;
+ try{
+  const {email,password}=readEmailPasswordInputs();
+  showAuthMessage('正在登入…');
+  if(!await ensureFirebaseReady())throw new Error('Firebase 登入功能尚未載入完成。');
+  await firebaseModules.authMod.signInWithEmailAndPassword(firebaseAuth,email,password);
+  showAuthMessage('登入成功，正在同步。','ok');
+ }catch(error){
+  const message=cloudErrorMessage(error);
+  showAuthMessage(message,'error');
+  setCloudUI('登入失敗','error',message);
+ }finally{if(btn)btn.disabled=false}
+}
+
+async function emailPasswordCreate(){
+ const btn=$('emailCreateBtn');
+ if(btn)btn.disabled=true;
+ try{
+  const {email,password}=readEmailPasswordInputs();
+  showAuthMessage('正在建立帳號…');
+  if(!await ensureFirebaseReady())throw new Error('Firebase 登入功能尚未載入完成。');
+  await firebaseModules.authMod.createUserWithEmailAndPassword(firebaseAuth,email,password);
+  showAuthMessage('帳號建立完成，正在同步。','ok');
+ }catch(error){
+  const message=cloudErrorMessage(error);
+  showAuthMessage(message,'error');
+  setCloudUI('建立帳號失敗','error',message);
+ }finally{if(btn)btn.disabled=false}
+}
+
+async function linkPasswordToCurrentAccount(){
+ const btn=$('linkPasswordBtn');
+ if(btn)btn.disabled=true;
+ try{
+  if(!await ensureFirebaseReady())throw new Error('Firebase 登入功能尚未載入完成。');
+  if(!firebaseAuth.currentUser)throw new Error('請先用 Google 登入原本已有資料的帳號。');
+  const {email,password}=readEmailPasswordInputs();
+  if(firebaseAuth.currentUser.email&&firebaseAuth.currentUser.email.toLowerCase()!==email.toLowerCase())throw new Error('Email 必須和目前已登入的 Firebase 帳號相同。');
+  const credential=firebaseModules.authMod.EmailAuthProvider.credential(email,password);
+  await firebaseModules.authMod.linkWithCredential(firebaseAuth.currentUser,credential);
+  await firebaseAuth.currentUser.reload();
+  updateCloudButtons(firebaseAuth.currentUser);
+  showAuthMessage('已把 Email／密碼綁定到原本帳號。現在手機可用同一組 Email／密碼登入，而且會沿用同一份雲端資料。','ok');
+  setCloudUI('帳號綁定完成','ok',firebaseAuth.currentUser.email||email);
+ }catch(error){
+  const message=cloudErrorMessage(error);
+  showAuthMessage(message,'error');
+  setCloudUI('帳號綁定失敗','error',message);
+ }finally{if(btn)btn.disabled=false}
+}
+
+async function cloudLogout(){
+ if(!firebaseModules||!firebaseAuth)return;
+ try{await firebaseModules.authMod.signOut(firebaseAuth)}catch(error){
+  setCloudUI('登出失敗','error',cloudErrorMessage(error));
+ }
+}
+
+function applyNotebookLocally(notebook){
+ cloudApplyInProgress=true;
+ try{
+  db=normalizeNotebook(notebook);
+  saveDB();
+  renderToday();
+  renderList();
+  updateStats();
+ }finally{
+  cloudApplyInProgress=false;
+ }
+}
+
+async function mergeCloudNotebook(notebook){
+ const incoming=normalizeNotebook(notebook);
+ cloudApplyInProgress=true;
+ try{
+  mergeIncomingNotebook(incoming);
+ }finally{
+  cloudApplyInProgress=false;
+ }
+}
+
+async function uploadCloudNow(reason='自動同步'){
+ if(!cloudSyncEnabled||!currentCloudUser||!cloudDocRef||!firebaseModules||cloudApplyInProgress)return false;
+ if(cloudUploadInProgress){scheduleCloudUpload();return false}
+ const payload=normalizeNotebook(db);
+ const digest=notebookDigest(payload);
+ if(digest===lastCloudDigest){
+  setCloudUI('即時自動同步已開啟','ok',`${currentCloudUser.email||'帳號'}｜資料已是最新`);
+  return true;
+ }
+ cloudUploadInProgress=true;
+ setCloudUI('正在上傳雲端','busy',`${currentCloudUser.email||'帳號'}｜${reason}`);
+ try{
+  await firebaseModules.firestoreMod.setDoc(cloudDocRef,{
+   notebook:payload,
+   clientUpdatedAt:new Date().toISOString(),
+   updatedAt:firebaseModules.firestoreMod.serverTimestamp(),
+   updatedBy:getDeviceId()
+  },{merge:true});
+  lastCloudDigest=digest;
+  const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
+  safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
+  setCloudUI('即時自動同步已完成','ok',`${currentCloudUser.email||'帳號'}｜最後同步 ${stamp}`);
+  return true;
+ }catch(error){
+  setCloudUI('同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
+  return false;
+ }finally{
+  cloudUploadInProgress=false;
+ }
+}
+
+function scheduleCloudUpload(){
+ if(!cloudSyncEnabled||cloudApplyInProgress||!currentCloudUser)return;
+ clearTimeout(cloudUploadTimer);
+ cloudUploadTimer=setTimeout(()=>uploadCloudNow('自動儲存'),150);
+}
+
+async function resolveInitialCloudData(snapshot,token){
+ if(token!==cloudInitializationToken||!currentCloudUser)return;
+ const cloudRaw=snapshot.exists()?snapshot.data()?.notebook:null;
+ const cloudNotebook=cloudRaw&&Array.isArray(cloudRaw.notes)?normalizeNotebook(cloudRaw):null;
+ const localNotebook=normalizeNotebook(db);
+ const localCount=localNotebook.notes.length;
+ const cloudCount=cloudNotebook?.notes.length||0;
+ const localDigest=notebookDigest(localNotebook);
+ const cloudDigest=cloudNotebook?notebookDigest(cloudNotebook):'';
+
+ // 初始化期間先禁止任何自動上傳，避免空白的新裝置蓋掉舊資料。
+ cloudSyncEnabled=false;
+ if(!cloudNotebook){
+  cloudSyncEnabled=true;
+  lastCloudDigest='';
+  if(localCount){
+   setCloudUI('首次上傳手機／本機資料','busy',`${currentCloudUser.email||'帳號'}｜共 ${localCount} 份`);
+   await uploadCloudNow('首次建立雲端資料');
+  }else{
+   setCloudUI('已登入，雲端目前沒有資料','ok',`${currentCloudUser.email||'帳號'}｜新增單字後會自動同步`);
+  }
+ }else if(localDigest===cloudDigest){
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  const stamp=safeStorage.getItem(CLOUD_LAST_SYNC_KEY);
+  setCloudUI('即時自動同步已開啟','ok',`${currentCloudUser.email||'帳號'}${stamp?`｜最後同步 ${stamp}`:'｜資料已一致'}`);
+ }else if(!localCount&&cloudCount){
+  setCloudUI('正在下載雲端資料','busy',`${currentCloudUser.email||'帳號'}｜共 ${cloudCount} 份`);
+  applyNotebookLocally(cloudNotebook);
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  const stamp=new Date().toLocaleString('zh-TW',{hour12:false});
+  safeStorage.setItem(CLOUD_LAST_SYNC_KEY,stamp);
+  setCloudUI('已下載並同步','ok',`${currentCloudUser.email||'帳號'}｜共 ${cloudCount} 份`);
+ }else if(localCount&&!cloudCount){
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  await uploadCloudNow('以本機非空資料更新空白雲端');
+ }else{
+  setCloudUI('手機與雲端資料不同，正在安全合併','busy',`本機 ${localCount} 份＋雲端 ${cloudCount} 份，不會直接覆蓋`);
+  await mergeCloudNotebook(cloudNotebook);
+  lastCloudDigest=cloudDigest;
+  cloudSyncEnabled=true;
+  await uploadCloudNow('合併後同步');
+ }
+ attachCloudListener(token);
+}
+
+function attachCloudListener(token){
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ if(!cloudDocRef||!firebaseModules)return;
+ stopCloudListener=firebaseModules.firestoreMod.onSnapshot(cloudDocRef,async snapshot=>{
+  if(token!==cloudInitializationToken||!currentCloudUser||!snapshot.exists())return;
+  const remote=snapshot.data()?.notebook;
+  if(!remote||!Array.isArray(remote.notes))return;
+  const remoteDigest=notebookDigest(remote);
+  if(remoteDigest===lastCloudDigest||remoteDigest===notebookDigest(db)){
+   lastCloudDigest=remoteDigest;
+   return;
+  }
+  setCloudUI('偵測到另一台裝置的更新，正在合併','busy',currentCloudUser.email||'帳號');
+  const wasEnabled=cloudSyncEnabled;
+  cloudSyncEnabled=false;
+  await mergeCloudNotebook(remote);
+  lastCloudDigest=remoteDigest;
+  cloudSyncEnabled=wasEnabled;
+  await uploadCloudNow('跨裝置合併');
+ },error=>{
+  setCloudUI('即時同步中斷，本機資料仍安全保留','error',cloudErrorMessage(error));
+ });
+}
+
+async function handleCloudAuthState(user){
+ const token=++cloudInitializationToken;
+ if(stopCloudListener){stopCloudListener();stopCloudListener=null}
+ clearTimeout(cloudUploadTimer);
+ if(!user){renderCloudSignedOut();return}
+ currentCloudUser=user;
+ updateCloudButtons(user);
+ setCloudUI('已登入，正在檢查雲端資料','busy',user.email||user.displayName||'帳號');
+ cloudDocRef=firebaseModules.firestoreMod.doc(firebaseFirestore,'users',user.uid,'vocab','notebook');
+ try{
+  const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
+  await resolveInitialCloudData(snapshot,token);
+ }catch(error){
+  cloudSyncEnabled=false;
+  setCloudUI('無法讀取雲端，本機資料仍安全保留','error',cloudErrorMessage(error));
+ }
+}
+
+async function refreshCloudAfterResume(reason='回到頁面自動同步'){
+ if(!currentCloudUser||!cloudDocRef||!firebaseModules||cloudApplyInProgress)return;
+ try{
+  const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
+  if(snapshot.exists()&&Array.isArray(snapshot.data()?.notebook?.notes)){
+   const remote=normalizeNotebook(snapshot.data().notebook);
+   const remoteDigest=notebookDigest(remote);
+   if(remoteDigest!==notebookDigest(db)){
+    const wasEnabled=cloudSyncEnabled;
+    cloudSyncEnabled=false;
+    await mergeCloudNotebook(remote);
+    cloudSyncEnabled=wasEnabled||true;
+    lastCloudDigest=remoteDigest;
+    await uploadCloudNow(reason);
+   }
+  }
+ }catch(error){
+  setCloudUI('自動同步暫時中斷，本機資料仍安全保留','error',cloudErrorMessage(error));
+ }
+}
+
+async function manualCloudSync(){
+ if(!currentCloudUser||!cloudDocRef||!firebaseModules)return;
+ $('manualSyncBtn').disabled=true;
+ try{
+  setCloudUI('正在手動同步','busy',currentCloudUser.email||'帳號');
+  const snapshot=await firebaseModules.firestoreMod.getDoc(cloudDocRef);
+  if(snapshot.exists()&&Array.isArray(snapshot.data()?.notebook?.notes)){
+   const remote=snapshot.data().notebook;
+   if(notebookDigest(remote)!==notebookDigest(db))await mergeCloudNotebook(remote);
+   lastCloudDigest=notebookDigest(remote);
+  }
+  cloudSyncEnabled=true;
+  await uploadCloudNow('手動同步');
+ }catch(error){
+  setCloudUI('手動同步失敗，本機資料仍安全保留','error',cloudErrorMessage(error));
+ }finally{
+  $('manualSyncBtn').disabled=false;
+ }
+}
+
+function emptyDB(){return {version:3,notes:[],deleted:{}}}
+
+function parseNotebook(raw){
+ try{
+  if(!raw)return null;
+  const parsed=JSON.parse(raw);
+  if(Array.isArray(parsed.notes))return normalizeNotebook(parsed);
+  return null;
+ }catch(e){
+  return null;
+ }
+}
+
+function loadEmbeddedTransferPackage(){
+ const pkg=window.__VOCAB_TRANSFER_PACKAGE__;
+ if(!pkg||!pkg.data||!Array.isArray(pkg.data.notes))return null;
+
+ const packageId=String(pkg.id||'unknown');
+ const markerKey=`auto_vocab_transfer_imported_${packageId}`;
+
+ try{
+  // 同一份移轉包只在第一次開啟時灌入，避免之後每次開啟都覆蓋新的複習進度。
+  if(safeStorage.getItem(markerKey))return null;
+
+  const oldMain=safeStorage.getItem(STORAGE_KEY);
+  const oldParsed=parseNotebook(oldMain);
+  if(oldParsed&&oldParsed.notes.length){
+   safeStorage.setItem(RECOVERY_KEY,oldMain);
+  }
+
+  const serialized=JSON.stringify(pkg.data);
+  safeStorage.setItem(STORAGE_KEY,serialized);
+  if(pkg.data.notes.length){
+   safeStorage.setItem(RECOVERY_KEY,serialized);
+  }
+  safeStorage.setItem(markerKey,'1');
+ }catch(e){
+  // localStorage 被限制時，仍直接使用移轉包內資料。
+ }
+
+ return JSON.parse(JSON.stringify(pkg.data));
+}
+
+function loadDB(){
+ const embedded=loadEmbeddedTransferPackage();
+ if(embedded)return normalizeNotebook(embedded);
+
+ const main=parseNotebook(safeStorage.getItem(STORAGE_KEY));
+ const recovery=parseNotebook(safeStorage.getItem(RECOVERY_KEY));
+
+ // 主資料正常且有內容時優先使用。
+ if(main&&main.notes.length)return normalizeNotebook(main);
+
+ // 主資料空白或損毀，但自動救援副本有內容時，自動恢復。
+ if(recovery&&recovery.notes.length){
+  try{safeStorage.setItem(STORAGE_KEY,JSON.stringify(recovery))}catch(e){}
+  return normalizeNotebook(recovery);
+ }
+
+ // 主資料合法但本來就是空資料時保留空資料。
+ if(main)return normalizeNotebook(main);
+ return emptyDB();
+}
+
+function saveDB(){
+ db=normalizeNotebook(db);
+ const serialized=JSON.stringify(db);
+ safeStorage.setItem(STORAGE_KEY,serialized);
+
+ // 只用非空資料更新最後有效副本，避免空白新檔覆蓋可救援資料。
+ if(Array.isArray(db.notes)&&db.notes.length>0){
+  safeStorage.setItem(RECOVERY_KEY,serialized);
+ }
+
+ updateStats();
+ scheduleCloudUpload();
+}
+function localISO(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
+function todayISO(){return localISO(new Date())}
+function addDays(iso,days){const [y,m,d]=iso.split('-').map(Number);const x=new Date(y,m-1,d,12);x.setDate(x.getDate()+days);return localISO(x)}
+function parseDateCode(value){
+ const raw=String(value||'').replace(/\D/g,''); if(!raw)return null;
+ let y,m,d;
+ if(raw.length===8){y=+raw.slice(0,4);m=+raw.slice(4,6);d=+raw.slice(6)}
+ else if(raw.length===3){y=new Date().getFullYear();m=+raw.slice(0,1);d=+raw.slice(1)}
+ else if(raw.length===4){y=new Date().getFullYear();m=+raw.slice(0,2);d=+raw.slice(2)}
+ else return null;
+ const t=new Date(y,m-1,d,12);
+ return (t.getFullYear()===y&&t.getMonth()===m-1&&t.getDate()===d)?localISO(t):null
+}
+function displayDate(iso,year=true){if(!iso)return'—';const [y,m,d]=iso.split('-');return year?`${y}/${+m}/${+d}`:`${+m}/${+d}`}
+function codeForDate(iso){const [,m,d]=iso.split('-');return `${+m}${String(+d).padStart(2,'0')}`}
+function buildSchedule(start){return OFFSETS.map(x=>addDays(start,x))}
+function uuid(){return crypto?.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function effectiveDue(n){return n.completed?null:(n.retryDate||n.schedule[n.stage]||null)}
+function batchMatches(n,q){
+ q=String(q||'').trim().toLowerCase(); if(!q)return true;
+ const digits=q.replace(/\D/g,'');
+ return n.content.toLowerCase().includes(q)||n.startDate.replaceAll('-','').includes(digits)||codeForDate(n.startDate)===digits||displayDate(n.startDate).includes(q)
+}
+function dueNotes(q=''){const t=todayISO();return db.notes.filter(n=>!n.completed&&effectiveDue(n)&&effectiveDue(n)<=t&&batchMatches(n,q))}
+function latestCompletionToday(n){
+ const t=todayISO(),h=(n.history||[]).filter(x=>x.action==='completed'&&x.date===t);
+ return h.length?h[h.length-1]:null
+}
+function completedToday(n){return !!latestCompletionToday(n)}
+function todayNotes(q=''){
+ const t=todayISO();
+ return db.notes.filter(n=>batchMatches(n,q)&&(
+   (!n.completed&&effectiveDue(n)&&effectiveDue(n)<=t)||completedToday(n)
+ )).sort((a,b)=>{
+   const ac=completedToday(a)?1:0,bc=completedToday(b)?1:0;
+   if(ac!==bc)return ac-bc;
+   return (effectiveDue(a)||'9999').localeCompare(effectiveDue(b)||'9999')
+ })
+}
+function updateStats(){
+ const t=todayISO(),due=db.notes.filter(n=>!n.completed&&effectiveDue(n)&&effectiveDue(n)<=t);
+ $('statDue').textContent=due.length;$('statOverdue').textContent=due.filter(n=>effectiveDue(n)<t).length;
+ $('statAll').textContent=db.notes.length;$('statDone').textContent=db.notes.filter(n=>n.completed).length
+}
+function showToast(text){const e=$('toast');e.textContent=text;e.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>e.classList.remove('show'),2200)}
+function switchTab(name){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===name));if(name==='manage')renderList()}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+
+function renderSchedulePreview(){
+ const start=parseDateCode($('startDateCode').value);$('schedulePreview').innerHTML='';$('dateError').textContent='';
+ if(!$('startDateCode').value.trim())return;
+ if(!start){$('dateError').textContent='日期格式不正確，請輸入例如 723 或 20260723。';return}
+ $('schedulePreview').innerHTML=buildSchedule(start).map((d,i)=>`<div class="chip"><b>第 ${OFFSETS[i]} 天</b><span>${displayDate(d,false)}</span></div>`).join('')
+}
+function saveNewNote(){
+ const start=parseDateCode($('startDateCode').value),content=$('noteInput').value.trim();
+ if(!start){$('saveResult').textContent='請先輸入有效日期。';return}
+ if(!content){$('saveResult').textContent='記事本目前是空的。';return}
+ const same=db.notes.find(n=>n.startDate===start&&!n.completed);
+ if(same){same.content=same.content.trimEnd()+'\n\n'+content;touchNote(same)}
+ else {const now=Date.now();db.notes.push({id:uuid(),startDate:start,content,schedule:buildSchedule(start),stage:0,retryDate:null,completed:false,createdAt:todayISO(),updatedAt:todayISO(),createdAtMs:now,updatedAtMs:now,history:[]});}
+ saveDB();$('noteInput').value='';$('saveResult').textContent='已儲存並完成全部日期排程。';showToast('已儲存')
+}
+
+function statusHTML(n){
+ const t=todayISO(),due=effectiveDue(n);
+ if(completedToday(n))return'<span class="status done">今天已完成</span>';
+ if(n.completed)return'<span class="status done">完成90天</span>';
+ if(due<t)return`<span class="status overdue">逾期 ${displayDate(due,false)}</span>`;
+ if(due===t)return'<span class="status today">今天到期</span>';
+ return`<span class="status future">下次 ${displayDate(due,false)}</span>`
+}
+function cardHTML(n,checkable=false){
+ const completed=latestCompletionToday(n);
+ const displayStage=completed
+   ? (Number.isInteger(completed.scheduledStage)?completed.scheduledStage:Math.max(0,n.stage-1))
+   : n.stage;
+ const offset=OFFSETS[displayStage]??90;
+ const checked=!!completed;
+ return `<div class="due-card ${checked?'completed-today':''}" data-id="${n.id}">
+  <div class="due-head">
+   ${checkable?`<div class="check-wrap"><input class="complete-check" type="checkbox" data-id="${n.id}" ${checked?'checked':''} title="${checked?'取消今天完成':'背完後勾選'}"></div>`:''}
+   <div class="due-main">
+    <div class="due-title">${displayDate(n.startDate,false)} 開始的單字表</div>
+    <div class="due-meta">${statusHTML(n)}　今天項目：第 ${offset} 天／第 ${Math.min(displayStage+1,8)} 次${checked?'　｜　已保留在今日清單':''}</div>
+   </div>
+   <div class="card-actions">
+    <button class="delete-note" data-id="${n.id}">刪除</button>
+    <button class="edit-note" data-id="${n.id}">編輯</button>
+   </div>
+  </div>
+  <div class="note-body">${escapeHTML(n.content)}</div>
+ </div>`
+}
+function beginInlineEdit(button){
+ const card=button.closest('.due-card');
+ const id=button.dataset.id;
+ const note=db.notes.find(n=>n.id===id);
+ if(!card||!note)return;
+ const oldEditor=card.querySelector('.inline-editor');
+ if(oldEditor)return;
+
+ const body=card.querySelector('.note-body');
+ body.style.display='none';
+
+ const editor=document.createElement('div');
+ editor.className='inline-editor';
+ editor.innerHTML=`
+   <textarea class="inline-textarea" aria-label="編輯單字內容"></textarea>
+   <div class="inline-actions">
+     <button class="secondary inline-cancel">取消</button>
+     <button class="primary inline-save">儲存修改</button>
+   </div>`;
+ card.appendChild(editor);
+
+ const textarea=editor.querySelector('.inline-textarea');
+ textarea.value=note.content;
+ textarea.focus();
+ textarea.setSelectionRange(textarea.value.length,textarea.value.length);
+ button.disabled=true;
+ button.textContent='編輯中';
+
+ editor.querySelector('.inline-cancel').onclick=()=>{
+   editor.remove();
+   body.style.display='block';
+   button.disabled=false;
+   button.textContent='編輯';
+ };
+
+ editor.querySelector('.inline-save').onclick=()=>{
+   const value=textarea.value.trim();
+   if(!value){
+     alert('單字內容不能是空白。');
+     return;
+   }
+   note.content=value;
+   touchNote(note);
+   saveDB();
+   body.textContent=value;
+   editor.remove();
+   body.style.display='block';
+   button.disabled=false;
+   button.textContent='編輯';
+   renderList();
+   showToast('單字內容已更新');
+ };
+}
+let pendingDeleteId=null;
+
+function requestDeleteNote(id){
+ const note=db.notes.find(n=>n.id===id);
+ if(!note)return;
+
+ pendingDeleteId=id;
+ $('deleteOneLabel').textContent=`${displayDate(note.startDate,false)} 開始的單字表`;
+ $('deleteOneModal').classList.add('show');
+}
+
+function cancelDeleteNote(){
+ pendingDeleteId=null;
+ $('deleteOneModal').classList.remove('show');
+}
+
+function confirmDeleteNote(){
+ if(!pendingDeleteId)return;
+
+ const id=pendingDeleteId;
+ pendingDeleteId=null;
+
+ db.deleted=db.deleted&&typeof db.deleted==='object'?db.deleted:{};
+ db.deleted[id]=Date.now();
+ db.notes=db.notes.filter(n=>n.id!==id);
+ saveDB();
+ $('deleteOneModal').classList.remove('show');
+ renderToday();
+
+ if($('viewModal').classList.contains('show')){
+  const filter=$('viewModal').dataset.filter||'all';
+  openStatView(filter);
+ }
+
+ showToast('單字表已刪除');
+}
+
+function wireCards(root,checkable=false){
+ root.querySelectorAll('.delete-note').forEach(btn=>btn.onclick=()=>requestDeleteNote(btn.dataset.id));
+ root.querySelectorAll('.edit-note').forEach(btn=>btn.onclick=()=>beginInlineEdit(btn));
+ if(checkable)root.querySelectorAll('.complete-check').forEach(box=>box.onchange=()=>{
+  if(box.checked)completeStage(box.dataset.id);
+  else undoCompleteStage(box.dataset.id)
+ })
+}
+function renderToday(){
+ const query=$('batchSearch').value.trim();
+ const root=$('todayList');
+ const today=todayISO();
+
+ // 有輸入開始日期時：直接查看所有符合的單字表，不限制是否今天到期。
+ // 留白時：才顯示今天到期、逾期或今天已完成的單字表。
+ const notes=query
+   ? db.notes
+       .filter(n=>batchMatches(n,query))
+       .sort((a,b)=>a.startDate.localeCompare(b.startDate))
+   : todayNotes('');
+
+ if(!notes.length){
+  root.innerHTML='';
+  $('todayEmpty').style.display='block';
+  $('todayEmpty').textContent=query
+    ? `找不到開始日期 ${query} 的單字表。`
+    : '今天沒有待背或今天已完成的單字表。';
+  return
+ }
+
+ $('todayEmpty').style.display='none';
+
+ // 搜尋未到期的未來單字表時，仍可查看與編輯，但不可提早勾選完成。
+ root.innerHTML=notes.map(n=>{
+   const due=effectiveDue(n);
+   const canCheck=completedToday(n)||(!n.completed&&due&&due<=today);
+   return cardHTML(n,canCheck);
+ }).join('');
+
+ wireCards(root,true);
+
+ // 對尚未到期的搜尋結果補上提示。
+ root.querySelectorAll('.due-card').forEach(card=>{
+   const n=db.notes.find(x=>x.id===card.dataset.id);
+   if(!n)return;
+   const due=effectiveDue(n);
+   const canCheck=completedToday(n)||(!n.completed&&due&&due<=today);
+   if(!canCheck){
+     const meta=card.querySelector('.due-meta');
+     if(meta)meta.insertAdjacentHTML(
+       'beforeend',
+       '　｜　<span class="status future">尚未到期，只供查看／編輯</span>'
+     );
+   }
+ });
+}
+function completeStage(id){
+ const n=db.notes.find(x=>x.id===id);if(!n||completedToday(n))return;
+ const today=todayISO(),priorStage=n.stage,priorCompleted=n.completed,priorRetryDate=n.retryDate??null;
+ n.history ||= [];
+ n.history.push({
+  date:today,action:'completed',scheduledStage:priorStage,
+  priorStage,priorCompleted,priorRetryDate
+ });
+ n.retryDate=null;
+ let next=n.stage+1;
+ while(next<n.schedule.length&&n.schedule[next]<=today)next++;
+ if(next>=n.schedule.length){n.stage=n.schedule.length;n.completed=true}
+ else n.stage=next;
+ touchNote(n);
+ saveDB();
+ renderToday();
+ if($('viewModal').classList.contains('show'))openStatView($('viewModal').dataset.filter);
+ showToast('已勾選完成；單字表仍保留在今天清單')
+}
+function undoCompleteStage(id){
+ const n=db.notes.find(x=>x.id===id);if(!n)return;
+ const h=latestCompletionToday(n);if(!h)return;
+ n.stage=Number.isInteger(h.priorStage)
+   ? h.priorStage
+   : (Number.isInteger(h.scheduledStage)?h.scheduledStage:Math.max(0,n.stage-1));
+ n.completed=typeof h.priorCompleted==='boolean'?h.priorCompleted:false;
+ n.retryDate=h.priorRetryDate??null;
+ const index=n.history.lastIndexOf(h);
+ if(index>=0)n.history.splice(index,1);
+ touchNote(n);
+ saveDB();
+ renderToday();
+ if($('viewModal').classList.contains('show'))openStatView($('viewModal').dataset.filter);
+ showToast('已取消勾選，恢復為今天待背')
+}
+
+function statItems(type){
+ const t=todayISO();
+ if(type==='due')return db.notes.filter(n=>!n.completed&&effectiveDue(n)&&effectiveDue(n)<=t);
+ if(type==='overdue')return db.notes.filter(n=>!n.completed&&effectiveDue(n)&&effectiveDue(n)<t);
+ if(type==='done')return db.notes.filter(n=>n.completed);
+ return db.notes
+}
+function statTitle(type){return({due:'今天應複習的單字表',overdue:'逾期單字表',all:'全部單字表',done:'已完成90天的單字表'})[type]}
+function openStatView(type){
+ const list=statItems(type);$('viewModal').dataset.filter=type;$('viewTitle').textContent=`${statTitle(type)}（${list.length}）`;
+ $('viewList').innerHTML=list.length?list.map(n=>cardHTML(n,type==='due'||type==='overdue')).join(''):'<div class="empty">目前沒有資料。</div>';
+ wireCards($('viewList'),type==='due'||type==='overdue');$('viewModal').classList.add('show')
+}
+document.querySelectorAll('.stat').forEach(s=>s.onclick=()=>openStatView(s.dataset.stat));
+
+function escapeHTML(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function filteredManageNotes(){
+ const t=todayISO();
+ return db.notes.filter(n=>{
+  if(manageFilter==='due')return !n.completed&&effectiveDue(n)&&effectiveDue(n)<=t;
+  if(manageFilter==='overdue')return !n.completed&&effectiveDue(n)&&effectiveDue(n)<t;
+  if(manageFilter==='done')return n.completed;
+  return true
+ }).sort((a,b)=>(effectiveDue(a)||'9999').localeCompare(effectiveDue(b)||'9999'))
+}
+function renderList(){}
+function openEditor(id){const n=db.notes.find(x=>x.id===id);if(!n)return;editingId=id;$('editDateLabel').textContent=`開始日期：${displayDate(n.startDate)}｜排程：${n.schedule.map(d=>displayDate(d,false)).join('、')}`;$('editTextarea').value=n.content;$('editModal').classList.add('show')}
+function saveEdit(){const n=db.notes.find(x=>x.id===editingId);const v=$('editTextarea').value.trim();if(!n||!v)return;n.content=v;touchNote(n);saveDB();$('editModal').classList.remove('show');renderList();renderToday();showToast('修改已儲存')}
+let exportObjectURL=null;
+let exportFileName='';
+let exportDataText='';
+
+function safeEmbeddedJSON(value){
+ return JSON.stringify(value)
+  .replace(/</g,'\\u003C')
+  .replace(/\u2028/g,'\\u2028')
+  .replace(/\u2029/g,'\\u2029');
+}
+
+function resetClonedInterface(clone){
+ clone.querySelectorAll('.modal.show').forEach(el=>el.classList.remove('show'));
+ clone.querySelectorAll('.inline-editor').forEach(el=>el.remove());
+
+ clone.querySelectorAll('.tab').forEach(tab=>{
+  tab.classList.toggle('active',tab.dataset.tab==='today');
+ });
+ clone.querySelectorAll('.panel').forEach(panel=>{
+  panel.classList.toggle('active',panel.id==='today');
+ });
+
+ const batchSearch=clone.querySelector('#batchSearch');
+ if(batchSearch)batchSearch.setAttribute('value','');
+
+ const noteInput=clone.querySelector('#noteInput');
+ if(noteInput)noteInput.textContent='';
+
+ const todayList=clone.querySelector('#todayList');
+ if(todayList)todayList.innerHTML='';
+
+ const todayEmpty=clone.querySelector('#todayEmpty');
+ if(todayEmpty){
+  todayEmpty.style.display='block';
+  todayEmpty.textContent='按「打開今天要背的內容」，系統會一次列出今天所有到期單字表。';
+ }
+
+ const viewList=clone.querySelector('#viewList');
+ if(viewList)viewList.innerHTML='';
+
+ const exportModal=clone.querySelector('#exportModal');
+ if(exportModal)exportModal.classList.remove('show');
+
+
+
+ const exportText=clone.querySelector('#exportBackupText');
+ if(exportText)exportText.textContent='';
+
+ const oldEmbedded=clone.querySelector('#embeddedTransferData');
+ if(oldEmbedded)oldEmbedded.remove();
+}
+
+function buildCompleteTransferPackage(){
+ const packageId=`${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+ const packagePayload={
+  id:packageId,
+  createdAt:new Date().toISOString(),
+  appVersion:'complete-transfer-v1',
+  data:JSON.parse(JSON.stringify(db))
+ };
+
+ const clone=document.documentElement.cloneNode(true);
+ resetClonedInterface(clone);
+
+ const embeddedScript=document.createElement('script');
+ embeddedScript.id='embeddedTransferData';
+ embeddedScript.textContent=`window.__VOCAB_TRANSFER_PACKAGE__=${safeEmbeddedJSON(packagePayload)};`;
+
+ const mainScript=clone.querySelector('body > script:last-of-type');
+ if(mainScript){
+  mainScript.parentNode.insertBefore(embeddedScript,mainScript);
+ }else{
+  clone.querySelector('body').appendChild(embeddedScript);
+ }
+
+ return '<!DOCTYPE html>\n'+clone.outerHTML;
+}
+
+function prepareExport(){
+ const count=Array.isArray(db.notes)?db.notes.length:0;
+ const countBox=$('exportDataCount');
+ const help=$('exportHelp');
+ const saveBtn=$('downloadBackupBtn');
+ const copyBtn=$('copyBackupBtn');
+ const shareBtn=$('shareBackupBtn');
+
+ countBox.className=`data-count ${count?'ok':'empty'}`;
+ countBox.textContent=count
+   ? `移轉包包含：完整程式＋${count} 份單字表＋所有複習進度與紀錄`
+   : '目前是 0 份單字表，無法製作含紀錄的完整移轉包';
+
+ if(exportObjectURL){
+  URL.revokeObjectURL(exportObjectURL);
+  exportObjectURL=null;
+ }
+
+ if(!count){
+  exportDataText='';
+  exportFileName='';
+  $('exportBackupText').value='';
+  help.innerHTML='請先確認單字資料已存在，或先按「匯入備份」救援。系統不會輸出空白移轉包，避免你誤以為資料已經備份。';
+  saveBtn.disabled=true;
+  copyBtn.disabled=true;
+  shareBtn.style.display='none';
+  $('exportModal').classList.add('show');
+  return;
+ }
+
+ exportDataText=buildCompleteTransferPackage();
+
+ const now=new Date();
+ const datePart=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+ const timePart=`${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+ exportFileName=`全自動單字複習器_完整移轉包_${datePart}_${timePart}.html`;
+
+ help.innerHTML=
+  '這一個 HTML 已封裝：<b>完整程式、全部單字紀錄、所有日期、複習階段、勾選與完成紀錄</b>。' +
+  '按下「儲存完整移轉包」後，系統會優先叫出儲存視窗；不支援時會自動改用分享或開新分頁。';
+
+ saveBtn.disabled=false;
+ copyBtn.disabled=false;
+
+ const blob=new Blob([exportDataText],{type:'text/html;charset=utf-8'});
+ exportObjectURL=URL.createObjectURL(blob);
+ $('exportBackupText').value=exportDataText;
+
+ let shareSupported=false;
+ try{
+  const file=new File([blob],exportFileName,{type:'text/html'});
+  shareSupported=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));
+ }catch(e){
+  shareSupported=false;
+ }
+ shareBtn.style.display=shareSupported?'inline-flex':'none';
+ $('exportModal').classList.add('show');
+}
+
+
+async function saveCompleteTransferPackage(){
+ if(!exportDataText||!exportFileName){
+  alert('目前沒有可儲存的移轉包。請先確認已有單字資料。');
+  return;
+ }
+
+ const blob=new Blob([exportDataText],{type:'text/html;charset=utf-8'});
+ const file=new File([blob],exportFileName,{type:'text/html'});
+
+ // 1. Chrome / Edge desktop: directly open the system Save As dialog.
+ if('showSaveFilePicker' in window){
+  try{
+   const handle=await window.showSaveFilePicker({
+    suggestedName:exportFileName,
+    types:[{
+     description:'HTML 檔案',
+     accept:{'text/html':['.html']}
+    }]
+   });
+   const writable=await handle.createWritable();
+   await writable.write(blob);
+   await writable.close();
+   showToast('完整移轉包已儲存');
+   return;
+  }catch(e){
+   if(e&&e.name==='AbortError')return;
+  }
+ }
+
+ // 2. Mobile browsers: open native share / Save to Files.
+ try{
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+   await navigator.share({
+    files:[file],
+    title:'全自動單字複習器完整移轉包'
+   });
+   showToast('已開啟分享／儲存到檔案');
+   return;
+  }
+ }catch(e){
+  if(e&&e.name==='AbortError')return;
+ }
+
+ // 3. Normal browser download; use a visible DOM anchor and keep it longer.
+ try{
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=exportFileName;
+  a.target='_blank';
+  a.rel='noopener';
+  a.style.position='fixed';
+  a.style.left='-9999px';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{
+   a.remove();
+   URL.revokeObjectURL(url);
+  },10000);
+
+  // Do not claim success in an embedded preview. Tell the user what to check.
+  showToast('已嘗試下載；若沒有檔案，將開啟新分頁備用');
+  setTimeout(()=>{
+   try{
+    const fallback=window.open(url,'_blank','noopener');
+    if(!fallback){
+     alert('此內嵌預覽禁止下載。請按「複製完整程式原始碼」，或先用瀏覽器開啟此 HTML 再儲存。');
+    }
+   }catch(e){}
+  },700);
+  return;
+ }catch(e){}
+
+ alert('此內嵌預覽禁止檔案儲存。請按「複製完整程式原始碼」，貼到文字檔後另存為 .html；或下載本程式到 Chrome 後再操作。');
+}
+
+async function shareExport(){
+ if(!exportDataText){showToast('目前沒有可分享的移轉包');return}
+ try{
+  const file=new File([exportDataText],exportFileName,{type:'text/html'});
+  await navigator.share({
+   files:[file],
+   title:'全自動單字複習器完整移轉包'
+  });
+  showToast('已開啟分享／儲存選單');
+ }catch(e){
+  if(e&&e.name==='AbortError')return;
+  alert('這個瀏覽器無法直接分享 HTML，請改按「下載完整移轉包」或複製完整程式原始碼。');
+ }
+}
+
+async function copyExport(){
+ if(!exportDataText){showToast('目前沒有可複製的移轉包');return}
+ const box=$('exportBackupText');
+ try{
+  await navigator.clipboard.writeText(exportDataText);
+  showToast('完整程式與全部紀錄已複製');
+ }catch(e){
+  box.focus();
+  box.select();
+  box.setSelectionRange(0,box.value.length);
+  const ok=document.execCommand('copy');
+  showToast(ok?'完整移轉包原始碼已複製':'請手動長按或 Ctrl+C 複製');
+ }
+}
+
+
+const RECORD_PACKAGE_TYPE='auto_vocab_records';
+const RECORD_PACKAGE_VERSION=1;
+
+function createRecordPackage(){
+ return {
+  type:RECORD_PACKAGE_TYPE,
+  packageVersion:RECORD_PACKAGE_VERSION,
+  exportedAt:new Date().toISOString(),
+  appDataVersion:Number(db.version||2),
+  noteCount:Array.isArray(db.notes)?db.notes.length:0,
+  notes:JSON.parse(JSON.stringify(Array.isArray(db.notes)?db.notes:[])),
+  deleted:JSON.parse(JSON.stringify(db.deleted&&typeof db.deleted==='object'?db.deleted:{}))
+ };
+}
+
+function serializeRecordPackage(){
+ return JSON.stringify(createRecordPackage(),null,2);
+}
+
+function normalizeTransferText(raw){
+ return String(raw||'')
+  .trim()
+  .replace(/^```(?:json)?\s*/i,'')
+  .replace(/\s*```$/,'')
+  .trim();
+}
+
+function parseRecordPackage(raw){
+ const cleaned=normalizeTransferText(raw);
+ if(!cleaned)throw new Error('沒有貼上紀錄內容');
+
+ const parsed=JSON.parse(cleaned);
+
+ // New record-only package.
+ if(parsed&&parsed.type===RECORD_PACKAGE_TYPE&&Array.isArray(parsed.notes)){
+  return {version:3,notes:parsed.notes,deleted:parsed.deleted||{}};
+ }
+
+ // Existing full JSON backup.
+ if(parsed&&Array.isArray(parsed.notes)){
+  return {version:Number(parsed.version||3),notes:parsed.notes,deleted:parsed.deleted||{}};
+ }
+
+ // Complete transfer HTML source pasted as text.
+ if(cleaned.includes('__VOCAB_TRANSFER_PACKAGE__')){
+  const match=cleaned.match(/window\.__VOCAB_TRANSFER_PACKAGE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
+  if(match){
+   const pkg=JSON.parse(match[1]);
+   if(pkg&&pkg.data&&Array.isArray(pkg.data.notes)){
+    return {version:Number(pkg.data.version||3),notes:pkg.data.notes,deleted:pkg.data.deleted||{}};
+   }
+  }
+ }
+
+ throw new Error('找不到有效的 notes 紀錄');
+}
+
+function noteUpdatedMs(note){
+ const value=Number(note?.updatedAtMs||legacyTimestamp(note)||0);
+ return Number.isFinite(value)?value:0;
+}
+
+function mergeTwoNotes(current,incoming){
+ const a=normalizeCloudNote(current);
+ const b=normalizeCloudNote(incoming);
+ if(!a)return b;
+ if(!b)return a;
+ const aTime=noteUpdatedMs(a),bTime=noteUpdatedMs(b);
+ let winner;
+ if(bTime>aTime)winner=b;
+ else if(aTime>bTime)winner=a;
+ else{
+  const aDigest=JSON.stringify(a),bDigest=JSON.stringify(b);
+  winner=bDigest>=aDigest?b:a;
+ }
+ winner.id=String(current?.id||winner.id||incoming?.id||uuid());
+ return winner;
+}
+
+function mergeIncomingNotebook(incoming){
+ const local=normalizeNotebook(db);
+ const remote=normalizeNotebook(incoming);
+ const existing=JSON.parse(JSON.stringify(local.notes));
+ const deleted={...local.deleted};
+ for(const [id,stamp] of Object.entries(remote.deleted||{})){
+  deleted[id]=Math.max(Number(deleted[id]||0),Number(stamp||0));
+ }
+
+ let added=0,updated=0,skipped=0;
+ remote.notes.forEach(note=>{
+  if(!note){skipped++;return}
+  let index=existing.findIndex(x=>x.id===note.id);
+  if(index<0)index=existing.findIndex(x=>x.startDate===note.startDate);
+  if(index>=0){
+   const before=JSON.stringify(existing[index]);
+   existing[index]=mergeTwoNotes(existing[index],note);
+   if(JSON.stringify(existing[index])!==before)updated++;else skipped++;
+  }else{
+   existing.push(note);
+   added++;
+  }
+ });
+
+ const notes=existing.filter(note=>Number(deleted[note.id]||0)<noteUpdatedMs(note));
+ db={version:3,notes,deleted};
+ saveDB();
+ renderToday();
+ renderList();
+ updateStats();
+ return {added,updated,skipped,total:db.notes.length};
+}
+
+async function copyTextReliably(value,textarea){
+ try{
+  await navigator.clipboard.writeText(value);
+  return true;
+ }catch(e){
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0,textarea.value.length);
+  try{return document.execCommand('copy')}catch(err){return false}
+ }
+}
+
+function openCopyRecords(){
+ const value=serializeRecordPackage();
+ const count=db.notes.length;
+
+ $('recordTransferTitle').textContent='複製全部紀錄';
+ $('recordTransferSummary').innerHTML=
+  `將複製 <b>${count}</b> 份單字表，包含內容、開始日期、複習排程、目前階段、勾選與完成紀錄。`;
+ $('recordTransferText').value=value;
+ $('recordTransferText').readOnly=true;
+ $('recordCopyActions').style.display='flex';
+ $('recordPasteActions').style.display='none';
+ $('recordMergeResult').style.display='none';
+ $('recordTransferModal').classList.add('show');
+
+ copyTextReliably(value,$('recordTransferText')).then(ok=>{
+  showToast(ok?`已複製 ${count} 份完整紀錄`:'請在文字框按 Ctrl+A、Ctrl+C 複製');
+ });
+}
+
+function openPasteRecords(){
+ $('recordTransferTitle').textContent='貼上／合併紀錄';
+ $('recordTransferSummary').innerHTML=
+  '把另一份程式按「複製全部紀錄」取得的文字貼在下面。<b>合併套入</b>會避免重複，並保留較新的進度。';
+ $('recordTransferText').value='';
+ $('recordTransferText').readOnly=false;
+ $('recordCopyActions').style.display='none';
+ $('recordPasteActions').style.display='flex';
+ $('recordMergeResult').style.display='none';
+ $('recordTransferModal').classList.add('show');
+ $('recordTransferText').focus();
+}
+
+async function repeatCopyRecords(){
+ const value=$('recordTransferText').value;
+ const ok=await copyTextReliably(value,$('recordTransferText'));
+ showToast(ok?'全部紀錄已複製':'請手動按 Ctrl+A、Ctrl+C');
+}
+
+function mergePastedRecords(){
+ try{
+  const incoming=parseRecordPackage($('recordTransferText').value);
+  const result=mergeIncomingNotebook(incoming);
+  const box=$('recordMergeResult');
+  box.style.display='block';
+  box.textContent=
+   `合併完成：新增 ${result.added} 份、更新 ${result.updated} 份、略過 ${result.skipped} 份；目前共 ${result.total} 份。`;
+  showToast('紀錄已合併套入');
+ }catch(e){
+  alert(`無法合併：${e.message}`);
+ }
+}
+
+function replaceWithPastedRecords(){
+ let incoming;
+ try{
+  incoming=parseRecordPackage($('recordTransferText').value);
+ }catch(e){
+  alert(`無法讀取：${e.message}`);
+  return;
+ }
+
+ if(!confirm(`確定完全覆蓋目前 ${db.notes.length} 份紀錄，改成貼上的 ${incoming.notes.length} 份嗎？`)){
+  return;
+ }
+
+ if(db.notes.length){
+  try{safeStorage.setItem(RECOVERY_KEY,JSON.stringify(db))}catch(e){}
+ }
+
+ db=normalizeNotebook(incoming);
+ saveDB();
+ renderToday();
+ renderList();
+ updateStats();
+
+ const box=$('recordMergeResult');
+ box.style.display='block';
+ box.textContent=`覆蓋完成：目前共 ${db.notes.length} 份紀錄。`;
+ showToast('目前紀錄已由貼上的資料取代');
+}
+
+function applyImportedNotebook(parsed){
+ if(!parsed||!Array.isArray(parsed.notes))throw new Error('invalid');
+
+ // 匯入前保留目前非空資料作為救援副本。
+ if(db&&Array.isArray(db.notes)&&db.notes.length){
+  safeStorage.setItem(RECOVERY_KEY,JSON.stringify(db));
+ }
+
+ db=normalizeNotebook(parsed);
+ saveDB();
+ renderList();
+ renderToday();
+ updateStats();
+ $('importModal').classList.remove('show');
+ showToast(`已還原 ${db.notes.length} 份單字表`);
+}
+
+function importJSON(file){
+ const r=new FileReader();
+ r.onload=()=>{
+  try{
+   const parsed=JSON.parse(r.result);
+   applyImportedNotebook(parsed);
+  }catch(e){
+   alert('這不是有效的單字複習器 JSON 備份檔。');
+  }
+ };
+ r.readAsText(file);
+}
+
+function restorePastedBackup(){
+ const raw=$('importBackupText').value.trim();
+ if(!raw){
+  alert('請先貼上完整備份內容。');
+  return;
+ }
+ try{
+  applyImportedNotebook(JSON.parse(raw));
+  $('importBackupText').value='';
+ }catch(e){
+  alert('貼上的內容不是有效備份。必須包含 notes 陣列。');
+ }
+}
+
+function convertLegacyCards(parsed){
+ if(!parsed||!Array.isArray(parsed.cards)||!parsed.cards.length)return null;
+ const groups=new Map();
+
+ parsed.cards.forEach(card=>{
+  const start=card.batch||card.createdAt;
+  if(!start||!/^\d{4}-\d{2}-\d{2}$/.test(start))return;
+  if(!groups.has(start))groups.set(start,[]);
+  const line=[
+   card.pt||'',
+   card.zh?` = ${card.zh}`:'',
+   card.example?` | ${card.example}`:''
+  ].join('').trim();
+  if(line)groups.get(start).push(line);
+ });
+
+ const notes=[];
+ groups.forEach((lines,start)=>{
+  if(!lines.length)return;
+  notes.push({
+   id:uuid(),
+   startDate:start,
+   content:lines.join('\n'),
+   schedule:buildSchedule(start),
+   stage:0,
+   retryDate:null,
+   completed:false,
+   createdAt:todayISO(),
+   updatedAt:todayISO(),
+   createdAtMs:Date.now(),
+   updatedAtMs:Date.now(),
+   history:[]
+  });
+ });
+
+ return notes.length?{version:2,notes}:null;
+}
+
+function recoverLegacyData(){
+ let best=null;
+ let bestSource='';
+
+ for(let i=0;i<safeStorage.length;i++){
+  const key=safeStorage.key(i);
+  const raw=safeStorage.getItem(key);
+  try{
+   const parsed=JSON.parse(raw);
+
+   if(parsed&&Array.isArray(parsed.notes)&&parsed.notes.length){
+    if(!best||parsed.notes.length>best.notes.length){
+     best=parsed;
+     bestSource=key;
+    }
+   }else{
+    const converted=convertLegacyCards(parsed);
+    if(converted&&(!best||converted.notes.length>best.notes.length)){
+     best=converted;
+     bestSource=key;
+    }
+   }
+  }catch(e){}
+ }
+
+ if(!best){
+  alert('這個頁面目前讀不到任何舊版資料。\n\n若舊單字仍顯示在另一個舊 HTML 頁面，請回到那個頁面匯出；不同預覽頁之間的資料可能被瀏覽器隔離。');
+  return;
+ }
+
+ const ok=confirm(`找到 ${best.notes.length} 份舊資料（來源：${bestSource}）。要還原嗎？`);
+ if(!ok)return;
+ applyImportedNotebook(best);
+}
+
+$('startDateCode').oninput=renderSchedulePreview;$('saveNoteBtn').onclick=saveNewNote;$('clearInputBtn').onclick=()=>{$('noteInput').value='';$('saveResult').textContent=''};
+$('startBtn').onclick=renderToday;$('batchSearch').onkeydown=e=>{if(e.key==='Enter')renderToday()};
+$('copyRecordsBtn').onclick=openCopyRecords;
+$('pasteRecordsBtn').onclick=openPasteRecords;
+$('copyRecordTextBtn').onclick=repeatCopyRecords;
+$('mergeRecordTextBtn').onclick=mergePastedRecords;
+$('replaceRecordTextBtn').onclick=replaceWithPastedRecords;
+$('closeRecordTransferBtn').onclick=()=>$('recordTransferModal').classList.remove('show');
+$('recordTransferModal').onclick=e=>{
+ if(e.target===$('recordTransferModal'))$('recordTransferModal').classList.remove('show');
+};
+$('exportBtn').onclick=prepareExport;
+$('downloadBackupBtn').onclick=saveCompleteTransferPackage;
+$('shareBackupBtn').onclick=shareExport;
+$('copyBackupBtn').onclick=copyExport;
+$('closeExportBtn').onclick=()=>$('exportModal').classList.remove('show');
+$('cancelDeleteOneBtn').onclick=cancelDeleteNote;
+$('confirmDeleteOneBtn').onclick=confirmDeleteNote;
+$('deleteOneModal').onclick=e=>{if(e.target===$('deleteOneModal'))cancelDeleteNote()};
+$('importBtn').onclick=()=>$('importModal').classList.add('show');
+$('closeImportBtn').onclick=()=>$('importModal').classList.remove('show');
+$('chooseImportFileBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{
+ const file=e.target.files[0];
+ if(!file)return;
+ $('selectedImportFile').textContent=file.name;
+ importJSON(file);
+ e.target.value='';
+};
+$('restorePastedBtn').onclick=restorePastedBackup;
+$('recoverLegacyBtn').onclick=recoverLegacyData;
+$('importModal').onclick=e=>{if(e.target===$('importModal'))$('importModal').classList.remove('show')};
+$('cancelEditBtn').onclick=()=>$('editModal').classList.remove('show');$('saveEditBtn').onclick=saveEdit;
+$('closeViewBtn').onclick=()=>$('viewModal').classList.remove('show');
+$('googleLoginBtn').onclick=googleLogin;
+$('emailLoginBtn').onclick=emailPasswordLogin;
+$('emailCreateBtn').onclick=emailPasswordCreate;
+$('linkPasswordBtn').onclick=linkPasswordToCurrentAccount;
+$('manualSyncBtn').onclick=manualCloudSync;
+$('logoutBtn').onclick=cloudLogout;
+window.addEventListener('online',()=>refreshCloudAfterResume('網路恢復自動同步'));
+window.addEventListener('focus',()=>refreshCloudAfterResume('回到頁面自動同步'));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCloudAfterResume('回到頁面自動同步')});
+
+
+const now=new Date();$('startDateCode').value=String(now.getMonth()+1)+String(now.getDate()).padStart(2,'0');
+window.addEventListener('beforeunload',()=>{if(exportObjectURL)URL.revokeObjectURL(exportObjectURL)});
+renderSchedulePreview();updateStats();
+loadFirebaseModules();
+if(!PERSISTENT_STORAGE_AVAILABLE){
+ const subtitle=document.querySelector('.subtitle');
+ if(subtitle){
+  const warning=document.createElement('div');
+  warning.style.cssText='margin:-4px 0 14px;padding:11px 13px;border-radius:12px;background:#fff4d6;color:#7a4b00;font-weight:750;font-size:13px;line-height:1.55';
+  warning.textContent='目前的 iPhone 預覽環境禁止永久儲存。按鈕仍可使用，但關閉頁面前請到「管理／備份」按「複製全部紀錄」，避免資料消失。';
+  subtitle.insertAdjacentElement('afterend',warning);
+ }
+}
+})();
+</script>
+</body>
+</html>
